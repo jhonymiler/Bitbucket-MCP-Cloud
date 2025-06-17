@@ -1,0 +1,28 @@
+#!/bin/bash
+# Pre-commit hook para verificar vazamentos de segurança
+
+echo "🔍 Verificando segurança antes do commit..."
+
+# Verificar se arquivos .env estão sendo commitados
+if git diff --cached --name-only | grep -E "\.env$|\.env\..*$"; then
+    echo "❌ ERRO: Arquivo .env detectado no commit!"
+    echo "   Arquivos .env contêm informações sensíveis e não devem ser commitados."
+    echo "   Use .env.example para templates."
+    exit 1
+fi
+
+# Verificar por possíveis tokens ou senhas
+if git diff --cached | grep -E "(password|token|secret|key).*=.*[A-Za-z0-9]{10,}"; then
+    echo "❌ ERRO: Possível credencial detectada no commit!"
+    echo "   Verifique se não há senhas, tokens ou chaves sendo commitadas."
+    exit 1
+fi
+
+# Verificar por URLs com credenciais
+if git diff --cached | grep -E "https?://[^:]+:[^@]+@"; then
+    echo "❌ ERRO: URL com credenciais detectada!"
+    exit 1
+fi
+
+echo "✅ Verificação de segurança passou!"
+exit 0
