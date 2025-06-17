@@ -1,5 +1,10 @@
 # Bitbucket Cloud MCP Server
 
+[![PyPI version](https://badge.fury.io/py/bitbucket-mcp-cloud.svg)](https://badge.fury.io/py/bitbucket-mcp-cloud)
+[![Python](https://img.shields.io/pypi/pyversions/bitbucket-mcp-cloud.svg)](https://pypi.org/project/bitbucket-mcp-cloud/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Tests](https://github.com/jhonymiler/Bitbucket-MCP-Cloud/actions/workflows/publish.yml/badge.svg)](https://github.com/jhonymiler/Bitbucket-MCP-Cloud/actions/workflows/publish.yml)
+
 A complete **Model Context Protocol (MCP)** server for integration with the Bitbucket Cloud API. This project provides programmatic access to all essential Bitbucket Cloud functionalities, including repository management, pull requests, commits, and comments.
 
 ## 🚀 Features
@@ -18,7 +23,29 @@ A complete **Model Context Protocol (MCP)** server for integration with the Bitb
 - **`list_pull_request_comments`** - List comments on pull request
 - **`create_pull_request_comment`** - Create comment on pull request
 
-## 📋 Prerequisites
+## � Installation
+
+### From PyPI (Recommended)
+
+```bash
+pip install bitbucket-mcp-cloud
+```
+
+### From Source
+
+```bash
+# Clone the repository
+git clone https://github.com/jhonymiler/Bitbucket-MCP-Cloud.git
+cd Bitbucket-MCP-Cloud
+
+# Using uv (recommended)
+uv sync
+
+# Or using pip
+pip install -e .
+```
+
+## �📋 Prerequisites
 
 - Python 3.10+
 - A Bitbucket Cloud account
