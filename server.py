@@ -4,19 +4,21 @@ Bitbucket Cloud MCP Server
 Complete MCP server for Bitbucket Cloud API interactions using the official MCP library
 """
 
-import os
-import asyncio
-import logging
-from typing import List, Dict, Any, Optional
-import httpx
-from mcp.server.fastmcp import FastMCP
-from dotenv import load_dotenv
 from datetime import datetime
+from typing import Any
+
+import httpx
+from dotenv import load_dotenv
+from mcp.server.fastmcp import FastMCP
 
 # Import our custom models and utilities
 from src.models import (
-    BitbucketUser, BitbucketRepository, BitbucketPullRequest, 
-    BitbucketProject, BitbucketBranch, BitbucketComment
+    BitbucketBranch,
+    BitbucketComment,
+    BitbucketProject,
+    BitbucketPullRequest,
+    BitbucketRepository,
+    BitbucketUser,
 )
 from src.utils import get_env_var, setup_logger
 
@@ -26,36 +28,37 @@ load_dotenv()
 # Setup logging
 logger = setup_logger(__name__)
 
+
 # Complete HTTP client for Bitbucket API
 class BitbucketCloudClient:
     """Complete Bitbucket Cloud API client with all required methods"""
-    
+
     def __init__(self):
         self.username = get_env_var("BITBUCKET_USERNAME")
         self.app_password = get_env_var("BITBUCKET_TOKEN")
         self.default_workspace = get_env_var("BITBUCKET_DEFAULT_WORKSPACE")
         self.base_url = "https://api.bitbucket.org/2.0"
         self._client = None
-        
+
     async def __aenter__(self):
         self._client = httpx.AsyncClient()
         return self
-        
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self._client:
             await self._client.aclose()
-    
+
     def _get_auth(self):
         return (self.username, self.app_password)
-    
-    def _get_workspace(self, workspace: Optional[str] = None) -> str:
+
+    def _get_workspace(self, workspace: str | None = None) -> str:
         return workspace or self.default_workspace
-    
-    async def _request(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
+
+    async def _request(self, method: str, endpoint: str, **kwargs) -> dict[str, Any]:
         """Make authenticated request to Bitbucket API"""
         url = f"{self.base_url}{endpoint}"
         auth = self._get_auth()
-        
+
         try:
             response = await self._client.request(method, url, auth=auth, **kwargs)
             response.raise_for_status()
@@ -66,73 +69,117 @@ class BitbucketCloudClient:
         except Exception as e:
             logger.error(f"Request error: {e}")
             raise
-    
+
     # Projects
-    async def list_projects(self, workspace: Optional[str] = None, limit: int = 25, start: int = 0) -> List[BitbucketProject]:
+    async def list_projects(
+        self, workspace: str | None = None, limit: int = 25, start: int = 0
+    ) -> list[BitbucketProject]:
         """List projects in workspace"""
         workspace = self._get_workspace(workspace)
         endpoint = f"/workspaces/{workspace}/projects"
         params = {"pagelen": limit, "page": start // limit + 1}
-        
+
         data = await self._request("GET", endpoint, params=params)
         projects = []
-        
+
         for item in data.get("values", []):
-            projects.append(BitbucketProject(
-                uuid=item.get("uuid"),
-                key=item.get("key"),
-                name=item.get("name"),
-                description=item.get("description"),
-                is_private=item.get("is_private", False),
-                created_on=datetime.fromisoformat(item.get("created_on").replace("Z", "+00:00")) if item.get("created_on") else None,
-                updated_on=datetime.fromisoformat(item.get("updated_on").replace("Z", "+00:00")) if item.get("updated_on") else None
-            ))
-        
+            projects.append(
+                BitbucketProject(
+                    uuid=item.get("uuid"),
+                    key=item.get("key"),
+                    name=item.get("name"),
+                    description=item.get("description"),
+                    is_private=item.get("is_private", False),
+                    created_on=(
+                        datetime.fromisoformat(
+                            item.get("created_on").replace("Z", "+00:00")
+                        )
+                        if item.get("created_on")
+                        else None
+                    ),
+                    updated_on=(
+                        datetime.fromisoformat(
+                            item.get("updated_on").replace("Z", "+00:00")
+                        )
+                        if item.get("updated_on")
+                        else None
+                    ),
+                )
+            )
+
         return projects
-    
-    # Repositories  
-    async def list_repositories(self, workspace: Optional[str] = None, project: Optional[str] = None, 
-                              limit: int = 25, start: int = 0) -> List[BitbucketRepository]:
+
+    # Repositories
+    async def list_repositories(
+        self,
+        workspace: str | None = None,
+        project: str | None = None,
+        limit: int = 25,
+        start: int = 0,
+    ) -> list[BitbucketRepository]:
         """List repositories in workspace or project"""
         workspace = self._get_workspace(workspace)
-        
+
         if project:
             endpoint = f"/repositories/{workspace}"
-            params = {"q": f'project.key="{project}"', "pagelen": limit, "page": start // limit + 1}
+            params = {
+                "q": f'project.key="{project}"',
+                "pagelen": limit,
+                "page": start // limit + 1,
+            }
         else:
             endpoint = f"/repositories/{workspace}"
             params = {"pagelen": limit, "page": start // limit + 1}
-        
+
         data = await self._request("GET", endpoint, params=params)
         repositories = []
-        
+
         for item in data.get("values", []):
-            repositories.append(BitbucketRepository(
-                uuid=item.get("uuid"),
-                name=item.get("name"),
-                full_name=item.get("full_name"),
-                description=item.get("description"),
-                is_private=item.get("is_private", False),
-                clone_links=item.get("links", {}).get("clone", []),
-                size=item.get("size"),
-                language=item.get("language"),
-                created_on=datetime.fromisoformat(item.get("created_on").replace("Z", "+00:00")) if item.get("created_on") else None,
-                updated_on=datetime.fromisoformat(item.get("updated_on").replace("Z", "+00:00")) if item.get("updated_on") else None
-            ))
-        
+            repositories.append(
+                BitbucketRepository(
+                    uuid=item.get("uuid"),
+                    name=item.get("name"),
+                    full_name=item.get("full_name"),
+                    description=item.get("description"),
+                    is_private=item.get("is_private", False),
+                    clone_links=item.get("links", {}).get("clone", []),
+                    size=item.get("size"),
+                    language=item.get("language"),
+                    created_on=(
+                        datetime.fromisoformat(
+                            item.get("created_on").replace("Z", "+00:00")
+                        )
+                        if item.get("created_on")
+                        else None
+                    ),
+                    updated_on=(
+                        datetime.fromisoformat(
+                            item.get("updated_on").replace("Z", "+00:00")
+                        )
+                        if item.get("updated_on")
+                        else None
+                    ),
+                )
+            )
+
         return repositories
-    
+
     # Pull Requests
-    async def list_pull_requests(self, repository: str, workspace: Optional[str] = None, 
-                               state: str = "OPEN", limit: int = 25) -> List[BitbucketPullRequest]:
+    async def list_pull_requests(
+        self,
+        repository: str,
+        workspace: str | None = None,
+        state: str = "OPEN",
+        limit: int = 25,
+    ) -> list[BitbucketPullRequest]:
         """List pull requests for repository"""
         workspace = self._get_workspace(workspace)
         endpoint = f"/repositories/{workspace}/{repository}/pullrequests"
         params = {"state": state, "pagelen": limit}
-        
+
         data = await self._request("GET", endpoint, params=params)
         pull_requests = []
-        
+
         for item in data.get("values", []):
             author_data = item.get("author")
             author = None
@@ -142,39 +189,59 @@ class BitbucketCloudClient:
                     username=author_data.get("username"),
                     display_name=author_data.get("display_name"),
                     account_id=author_data.get("account_id"),
-                    nickname=author_data.get("nickname")
+                    nickname=author_data.get("nickname"),
                 )
-            
+
             source_data = item.get("source", {}).get("branch")
-            source = BitbucketBranch(name=source_data.get("name")) if source_data else None
-            
+            source = (
+                BitbucketBranch(name=source_data.get("name")) if source_data else None
+            )
+
             dest_data = item.get("destination", {}).get("branch")
-            destination = BitbucketBranch(name=dest_data.get("name")) if dest_data else None
-            
-            pull_requests.append(BitbucketPullRequest(
-                id=item.get("id"),
-                title=item.get("title"),
-                description=item.get("description"),
-                state=item.get("state"),
-                author=author,
-                source=source,
-                destination=destination,
-                created_on=datetime.fromisoformat(item.get("created_on").replace("Z", "+00:00")) if item.get("created_on") else None,
-                updated_on=datetime.fromisoformat(item.get("updated_on").replace("Z", "+00:00")) if item.get("updated_on") else None,
-                close_source_branch=item.get("close_source_branch", False),
-                reviewers=item.get("reviewers", []),
-                participants=item.get("participants", [])
-            ))
-        
+            destination = (
+                BitbucketBranch(name=dest_data.get("name")) if dest_data else None
+            )
+
+            pull_requests.append(
+                BitbucketPullRequest(
+                    id=item.get("id"),
+                    title=item.get("title"),
+                    description=item.get("description"),
+                    state=item.get("state"),
+                    author=author,
+                    source=source,
+                    destination=destination,
+                    created_on=(
+                        datetime.fromisoformat(
+                            item.get("created_on").replace("Z", "+00:00")
+                        )
+                        if item.get("created_on")
+                        else None
+                    ),
+                    updated_on=(
+                        datetime.fromisoformat(
+                            item.get("updated_on").replace("Z", "+00:00")
+                        )
+                        if item.get("updated_on")
+                        else None
+                    ),
+                    close_source_branch=item.get("close_source_branch", False),
+                    reviewers=item.get("reviewers", []),
+                    participants=item.get("participants", []),
+                )
+            )
+
         return pull_requests
-    
-    async def get_pull_request(self, repository: str, pr_id: int, workspace: Optional[str] = None) -> BitbucketPullRequest:
+
+    async def get_pull_request(
+        self, repository: str, pr_id: int, workspace: str | None = None
+    ) -> BitbucketPullRequest:
         """Get specific pull request details"""
         workspace = self._get_workspace(workspace)
         endpoint = f"/repositories/{workspace}/{repository}/pullrequests/{pr_id}"
-        
+
         item = await self._request("GET", endpoint)
-        
+
         author_data = item.get("author")
         author = None
         if author_data:
@@ -183,15 +250,15 @@ class BitbucketCloudClient:
                 username=author_data.get("username"),
                 display_name=author_data.get("display_name"),
                 account_id=author_data.get("account_id"),
-                nickname=author_data.get("nickname")
+                nickname=author_data.get("nickname"),
             )
-        
+
         source_data = item.get("source", {}).get("branch")
         source = BitbucketBranch(name=source_data.get("name")) if source_data else None
-        
+
         dest_data = item.get("destination", {}).get("branch")
         destination = BitbucketBranch(name=dest_data.get("name")) if dest_data else None
-        
+
         return BitbucketPullRequest(
             id=item.get("id"),
             title=item.get("title"),
@@ -200,34 +267,49 @@ class BitbucketCloudClient:
             author=author,
             source=source,
             destination=destination,
-            created_on=datetime.fromisoformat(item.get("created_on").replace("Z", "+00:00")) if item.get("created_on") else None,
-            updated_on=datetime.fromisoformat(item.get("updated_on").replace("Z", "+00:00")) if item.get("updated_on") else None,
+            created_on=(
+                datetime.fromisoformat(item.get("created_on").replace("Z", "+00:00"))
+                if item.get("created_on")
+                else None
+            ),
+            updated_on=(
+                datetime.fromisoformat(item.get("updated_on").replace("Z", "+00:00"))
+                if item.get("updated_on")
+                else None
+            ),
             close_source_branch=item.get("close_source_branch", False),
             reviewers=item.get("reviewers", []),
-            participants=item.get("participants", [])
+            participants=item.get("participants", []),
         )
-    
-    async def create_pull_request(self, repository: str, title: str, source_branch: str, 
-                                target_branch: str = "main", description: str = "", 
-                                workspace: Optional[str] = None, close_source_branch: bool = False,
-                                reviewers: Optional[List[str]] = None) -> BitbucketPullRequest:
+
+    async def create_pull_request(
+        self,
+        repository: str,
+        title: str,
+        source_branch: str,
+        target_branch: str = "main",
+        description: str = "",
+        workspace: str | None = None,
+        close_source_branch: bool = False,
+        reviewers: list[str] | None = None,
+    ) -> BitbucketPullRequest:
         """Create new pull request"""
         workspace = self._get_workspace(workspace)
         endpoint = f"/repositories/{workspace}/{repository}/pullrequests"
-        
+
         data = {
             "title": title,
             "description": description,
             "source": {"branch": {"name": source_branch}},
             "destination": {"branch": {"name": target_branch}},
-            "close_source_branch": close_source_branch
+            "close_source_branch": close_source_branch,
         }
-        
+
         if reviewers:
             data["reviewers"] = [{"uuid": reviewer} for reviewer in reviewers]
-        
+
         item = await self._request("POST", endpoint, json=data)
-        
+
         # Convert response to BitbucketPullRequest model
         author_data = item.get("author")
         author = None
@@ -237,53 +319,76 @@ class BitbucketCloudClient:
                 username=author_data.get("username"),
                 display_name=author_data.get("display_name"),
                 account_id=author_data.get("account_id"),
-                nickname=author_data.get("nickname")
+                nickname=author_data.get("nickname"),
             )
-        
+
         return BitbucketPullRequest(
             id=item.get("id"),
             title=item.get("title"),
             description=item.get("description"),
             state=item.get("state"),
             author=author,
-            created_on=datetime.fromisoformat(item.get("created_on").replace("Z", "+00:00")) if item.get("created_on") else None,
-            updated_on=datetime.fromisoformat(item.get("updated_on").replace("Z", "+00:00")) if item.get("updated_on") else None
+            created_on=(
+                datetime.fromisoformat(item.get("created_on").replace("Z", "+00:00"))
+                if item.get("created_on")
+                else None
+            ),
+            updated_on=(
+                datetime.fromisoformat(item.get("updated_on").replace("Z", "+00:00"))
+                if item.get("updated_on")
+                else None
+            ),
         )
-    
-    async def approve_pull_request(self, repository: str, pr_id: int, workspace: Optional[str] = None) -> Dict[str, Any]:
+
+    async def approve_pull_request(
+        self, repository: str, pr_id: int, workspace: str | None = None
+    ) -> dict[str, Any]:
         """Approve pull request"""
         workspace = self._get_workspace(workspace)
-        endpoint = f"/repositories/{workspace}/{repository}/pullrequests/{pr_id}/approve"
-        
+        endpoint = (
+            f"/repositories/{workspace}/{repository}/pullrequests/{pr_id}/approve"
+        )
+
         return await self._request("POST", endpoint)
-    
-    async def decline_pull_request(self, repository: str, pr_id: int, workspace: Optional[str] = None) -> Dict[str, Any]:
+
+    async def decline_pull_request(
+        self, repository: str, pr_id: int, workspace: str | None = None
+    ) -> dict[str, Any]:
         """Decline pull request"""
         workspace = self._get_workspace(workspace)
-        endpoint = f"/repositories/{workspace}/{repository}/pullrequests/{pr_id}/decline"
-        
+        endpoint = (
+            f"/repositories/{workspace}/{repository}/pullrequests/{pr_id}/decline"
+        )
+
         return await self._request("POST", endpoint)
-    
-    async def merge_pull_request(self, repository: str, pr_id: int, 
-                               merge_strategy: str = "merge_commit", 
-                               workspace: Optional[str] = None) -> Dict[str, Any]:
+
+    async def merge_pull_request(
+        self,
+        repository: str,
+        pr_id: int,
+        merge_strategy: str = "merge_commit",
+        workspace: str | None = None,
+    ) -> dict[str, Any]:
         """Merge approved pull request"""
         workspace = self._get_workspace(workspace)
         endpoint = f"/repositories/{workspace}/{repository}/pullrequests/{pr_id}/merge"
-        
+
         data = {"merge_strategy": merge_strategy}
         return await self._request("POST", endpoint, json=data)
-    
+
     # Comments
-    async def list_pull_request_comments(self, repository: str, pr_id: int, 
-                                       workspace: Optional[str] = None) -> List[BitbucketComment]:
+    async def list_pull_request_comments(
+        self, repository: str, pr_id: int, workspace: str | None = None
+    ) -> list[BitbucketComment]:
         """List comments on pull request"""
         workspace = self._get_workspace(workspace)
-        endpoint = f"/repositories/{workspace}/{repository}/pullrequests/{pr_id}/comments"
-        
+        endpoint = (
+            f"/repositories/{workspace}/{repository}/pullrequests/{pr_id}/comments"
+        )
+
         data = await self._request("GET", endpoint)
         comments = []
-        
+
         for item in data.get("values", []):
             user_data = item.get("user")
             user = None
@@ -293,37 +398,57 @@ class BitbucketCloudClient:
                     username=user_data.get("username"),
                     display_name=user_data.get("display_name"),
                     account_id=user_data.get("account_id"),
-                    nickname=user_data.get("nickname")
+                    nickname=user_data.get("nickname"),
                 )
-            
-            comments.append(BitbucketComment(
-                id=item.get("id"),
-                content=item.get("content", {}),
-                user=user,
-                created_on=datetime.fromisoformat(item.get("created_on").replace("Z", "+00:00")) if item.get("created_on") else None,
-                updated_on=datetime.fromisoformat(item.get("updated_on").replace("Z", "+00:00")) if item.get("updated_on") else None,
-                parent=item.get("parent", {}).get("id") if item.get("parent") else None
-            ))
-        
+
+            comments.append(
+                BitbucketComment(
+                    id=item.get("id"),
+                    content=item.get("content", {}),
+                    user=user,
+                    created_on=(
+                        datetime.fromisoformat(
+                            item.get("created_on").replace("Z", "+00:00")
+                        )
+                        if item.get("created_on")
+                        else None
+                    ),
+                    updated_on=(
+                        datetime.fromisoformat(
+                            item.get("updated_on").replace("Z", "+00:00")
+                        )
+                        if item.get("updated_on")
+                        else None
+                    ),
+                    parent=(
+                        item.get("parent", {}).get("id") if item.get("parent") else None
+                    ),
+                )
+            )
+
         return comments
-    
-    async def create_pull_request_comment(self, repository: str, pr_id: int, content: str,
-                                        workspace: Optional[str] = None, parent_id: Optional[int] = None) -> BitbucketComment:
+
+    async def create_pull_request_comment(
+        self,
+        repository: str,
+        pr_id: int,
+        content: str,
+        workspace: str | None = None,
+        parent_id: int | None = None,
+    ) -> BitbucketComment:
         """Create comment on pull request"""
         workspace = self._get_workspace(workspace)
-        endpoint = f"/repositories/{workspace}/{repository}/pullrequests/{pr_id}/comments"
-        
-        data = {
-            "content": {
-                "raw": content
-            }
-        }
-        
+        endpoint = (
+            f"/repositories/{workspace}/{repository}/pullrequests/{pr_id}/comments"
+        )
+
+        data = {"content": {"raw": content}}
+
         if parent_id:
             data["parent"] = {"id": parent_id}
-        
+
         item = await self._request("POST", endpoint, json=data)
-        
+
         user_data = item.get("user")
         user = None
         if user_data:
@@ -332,33 +457,47 @@ class BitbucketCloudClient:
                 username=user_data.get("username"),
                 display_name=user_data.get("display_name"),
                 account_id=user_data.get("account_id"),
-                nickname=user_data.get("nickname")
+                nickname=user_data.get("nickname"),
             )
-        
+
         return BitbucketComment(
             id=item.get("id"),
             content=item.get("content", {}),
             user=user,
-            created_on=datetime.fromisoformat(item.get("created_on").replace("Z", "+00:00")) if item.get("created_on") else None,
-            updated_on=datetime.fromisoformat(item.get("updated_on").replace("Z", "+00:00")) if item.get("updated_on") else None,
-            parent=item.get("parent", {}).get("id") if item.get("parent") else None
+            created_on=(
+                datetime.fromisoformat(item.get("created_on").replace("Z", "+00:00"))
+                if item.get("created_on")
+                else None
+            ),
+            updated_on=(
+                datetime.fromisoformat(item.get("updated_on").replace("Z", "+00:00"))
+                if item.get("updated_on")
+                else None
+            ),
+            parent=item.get("parent", {}).get("id") if item.get("parent") else None,
         )
-    
+
     # Commits
-    async def list_commits(self, repository: str, workspace: Optional[str] = None, 
-                         branch: Optional[str] = None, limit: int = 25) -> List[Dict[str, Any]]:
+    async def list_commits(
+        self,
+        repository: str,
+        workspace: str | None = None,
+        branch: str | None = None,
+        limit: int = 25,
+    ) -> list[dict[str, Any]]:
         """List commits in repository"""
         workspace = self._get_workspace(workspace)
-        
+
         if branch:
             endpoint = f"/repositories/{workspace}/{repository}/commits/{branch}"
         else:
             endpoint = f"/repositories/{workspace}/{repository}/commits"
-        
+
         params = {"pagelen": limit}
         data = await self._request("GET", endpoint, params=params)
-        
+
         return data.get("values", [])
+
 
 # Initialize FastMCP server
 mcp = FastMCP(
@@ -383,47 +522,58 @@ mcp = FastMCP(
     - merge_pull_request: Merge approved pull request
     - list_pull_request_comments: List comments on pull request
     - create_pull_request_comment: Create comment on pull request
-    """
+    """,
 )
+
 
 @mcp.tool()
 async def list_projects(
-    workspace: Optional[str] = None,
-    limit: int = 25,
-    start: int = 0
-) -> List[Dict[str, Any]]:
+    workspace: str | None = None, limit: int = 25, start: int = 0
+) -> list[dict[str, Any]]:
     """
     List all Bitbucket projects you have access to.
-    
+
     Args:
         workspace: Workspace name (optional, uses BITBUCKET_DEFAULT_WORKSPACE if not provided)
         limit: Number of projects to return (default: 25, max: 1000)
         start: Start index for pagination (default: 0)
-    
+
     Returns:
         List of projects with their details
     """
-    logger.info(f"Listing projects for workspace: {workspace}, limit: {limit}, start: {start}")
-    
+    logger.info(
+        f"Listing projects for workspace: {workspace}, limit: {limit}, start: {start}"
+    )
+
     try:
         async with BitbucketCloudClient() as client:
             projects = await client.list_projects(workspace, limit, start)
-            
+
             result = []
             for project in projects:
-                result.append({
-                    "uuid": project.uuid,
-                    "key": project.key,
-                    "name": project.name,
-                    "description": project.description,
-                    "is_private": project.is_private,
-                    "created_on": project.created_on.isoformat() if project.created_on else None,
-                    "updated_on": project.updated_on.isoformat() if project.updated_on else None
-                })
-            
+                result.append(
+                    {
+                        "uuid": project.uuid,
+                        "key": project.key,
+                        "name": project.name,
+                        "description": project.description,
+                        "is_private": project.is_private,
+                        "created_on": (
+                            project.created_on.isoformat()
+                            if project.created_on
+                            else None
+                        ),
+                        "updated_on": (
+                            project.updated_on.isoformat()
+                            if project.updated_on
+                            else None
+                        ),
+                    }
+                )
+
             logger.info(f"Found {len(result)} projects")
             return result
-            
+
     except Exception as e:
         logger.error(f"Error listing projects: {e}")
         raise
@@ -431,47 +581,55 @@ async def list_projects(
 
 @mcp.tool()
 async def list_repositories(
-    workspace: Optional[str] = None,
-    project: Optional[str] = None,
+    workspace: str | None = None,
+    project: str | None = None,
     limit: int = 25,
-    start: int = 0
-) -> List[Dict[str, Any]]:
+    start: int = 0,
+) -> list[dict[str, Any]]:
     """
     List repositories within a workspace or project.
-    
+
     Args:
         workspace: Workspace name (optional)
         project: Project key to filter repositories (optional)
         limit: Number of repositories to return (default: 25, max: 1000)
         start: Start index for pagination (default: 0)
-    
+
     Returns:
         List of repositories with their details
     """
     logger.info(f"Listing repositories for workspace: {workspace}, project: {project}")
-    
+
     try:
         async with BitbucketCloudClient() as client:
-            repositories = await client.list_repositories(workspace, project, limit, start)
-            
+            repositories = await client.list_repositories(
+                workspace, project, limit, start
+            )
+
             result = []
             for repo in repositories:
-                result.append({
-                    "uuid": repo.uuid,
-                    "name": repo.name,
-                    "full_name": repo.full_name,
-                    "description": repo.description,
-                    "is_private": repo.is_private,
-                    "clone_links": repo.clone_links,
-                    "size": repo.size,
-                    "language": repo.language,
-                    "created_on": repo.created_on.isoformat() if repo.created_on else None,
-                    "updated_on": repo.updated_on.isoformat() if repo.updated_on else None
-                })
-            
+                result.append(
+                    {
+                        "uuid": repo.uuid,
+                        "name": repo.name,
+                        "full_name": repo.full_name,
+                        "description": repo.description,
+                        "is_private": repo.is_private,
+                        "clone_links": repo.clone_links,
+                        "size": repo.size,
+                        "language": repo.language,
+                        "created_on": (
+                            repo.created_on.isoformat() if repo.created_on else None
+                        ),
+                        "updated_on": (
+                            repo.updated_on.isoformat() if repo.updated_on else None
+                        ),
+                    }
+                )
+
             logger.info(f"Found {len(result)} repositories")
             return result
-            
+
     except Exception as e:
         logger.error(f"Error listing repositories: {e}")
         raise
@@ -479,55 +637,59 @@ async def list_repositories(
 
 @mcp.tool()
 async def get_pull_request(
-    repository: str,
-    pr_id: int,
-    workspace: Optional[str] = None
-) -> Optional[Dict[str, Any]]:
+    repository: str, pr_id: int, workspace: str | None = None
+) -> dict[str, Any] | None:
     """
     Get details of a specific pull request.
-    
+
     Args:
         repository: Repository slug containing the pull request
         pr_id: Pull request ID number
         workspace: Workspace name (optional)
-    
+
     Returns:
         Pull request details or None if not found
     """
     logger.info(f"Getting pull request {pr_id} from {repository}")
-    
+
     try:
         async with BitbucketCloudClient() as client:
             pr = await client.get_pull_request(repository, pr_id, workspace)
-            
+
             if not pr:
                 logger.warning(f"Pull request {pr_id} not found in {repository}")
                 return None
-            
+
             result = {
                 "id": pr.id,
                 "title": pr.title,
                 "description": pr.description,
                 "state": pr.state,
-                "author": {
-                    "uuid": pr.author.uuid,
-                    "username": pr.author.username,
-                    "display_name": pr.author.display_name,
-                    "account_id": pr.author.account_id,
-                    "nickname": pr.author.nickname
-                } if pr.author else None,
+                "author": (
+                    {
+                        "uuid": pr.author.uuid,
+                        "username": pr.author.username,
+                        "display_name": pr.author.display_name,
+                        "account_id": pr.author.account_id,
+                        "nickname": pr.author.nickname,
+                    }
+                    if pr.author
+                    else None
+                ),
                 "source": {"name": pr.source.name} if pr.source else None,
-                "destination": {"name": pr.destination.name} if pr.destination else None,
+                "destination": (
+                    {"name": pr.destination.name} if pr.destination else None
+                ),
                 "created_on": pr.created_on.isoformat() if pr.created_on else None,
                 "updated_on": pr.updated_on.isoformat() if pr.updated_on else None,
                 "close_source_branch": pr.close_source_branch,
                 "reviewers": pr.reviewers,
-                "participants": pr.participants
+                "participants": pr.participants,
             }
-            
+
             logger.info(f"Retrieved pull request {pr_id} successfully")
             return result
-            
+
     except Exception as e:
         logger.error(f"Error getting pull request: {e}")
         raise
@@ -536,45 +698,53 @@ async def get_pull_request(
 @mcp.tool()
 async def list_commits(
     repository: str,
-    workspace: Optional[str] = None,
-    branch: Optional[str] = None,
-    limit: int = 25
-) -> List[Dict[str, Any]]:
+    workspace: str | None = None,
+    branch: str | None = None,
+    limit: int = 25,
+) -> list[dict[str, Any]]:
     """
     List commits in repository.
-    
+
     Args:
         repository: Repository slug
         workspace: Workspace name (optional)
         branch: Branch name to list commits from (optional, defaults to main branch)
         limit: Number of commits to return (default: 25)
-    
+
     Returns:
         List of commits with their details
     """
     logger.info(f"Listing commits for {repository}, branch: {branch}")
-    
+
     try:
         async with BitbucketCloudClient() as client:
             commits = await client.list_commits(repository, workspace, branch, limit)
-            
+
             result = []
             for commit in commits:
-                result.append({
-                    "hash": commit.get("hash"),
-                    "message": commit.get("message"),
-                    "author": {
-                        "user": commit.get("author", {}).get("user", {}),
-                        "raw": commit.get("author", {}).get("raw")
-                    } if commit.get("author") else None,
-                    "date": commit.get("date"),
-                    "parents": [parent.get("hash") for parent in commit.get("parents", [])],
-                    "links": commit.get("links", {})
-                })
-            
+                result.append(
+                    {
+                        "hash": commit.get("hash"),
+                        "message": commit.get("message"),
+                        "author": (
+                            {
+                                "user": commit.get("author", {}).get("user", {}),
+                                "raw": commit.get("author", {}).get("raw"),
+                            }
+                            if commit.get("author")
+                            else None
+                        ),
+                        "date": commit.get("date"),
+                        "parents": [
+                            parent.get("hash") for parent in commit.get("parents", [])
+                        ],
+                        "links": commit.get("links", {}),
+                    }
+                )
+
             logger.info(f"Found {len(result)} commits")
             return result
-            
+
     except Exception as e:
         logger.error(f"Error listing commits: {e}")
         raise
@@ -582,55 +752,66 @@ async def list_commits(
 
 @mcp.tool()
 async def list_pull_requests(
-    repository: str,
-    workspace: Optional[str] = None,
-    state: str = "OPEN",
-    limit: int = 25
-) -> List[Dict[str, Any]]:
+    repository: str, workspace: str | None = None, state: str = "OPEN", limit: int = 25
+) -> list[dict[str, Any]]:
     """
     List pull requests in repository.
-    
+
     Args:
         repository: Repository slug
         workspace: Workspace name (optional)
         state: Pull request state (OPEN, MERGED, DECLINED, SUPERSEDED)
         limit: Number of pull requests to return (default: 25)
-    
+
     Returns:
         List of pull requests with their details
     """
     logger.info(f"Listing pull requests for {repository}, state: {state}")
-    
+
     try:
         async with BitbucketCloudClient() as client:
-            pull_requests = await client.list_pull_requests(repository, workspace, state, limit)
-            
+            pull_requests = await client.list_pull_requests(
+                repository, workspace, state, limit
+            )
+
             result = []
             for pr in pull_requests:
-                result.append({
-                    "id": pr.id,
-                    "title": pr.title,
-                    "description": pr.description,
-                    "state": pr.state,
-                    "author": {
-                        "uuid": pr.author.uuid,
-                        "username": pr.author.username,
-                        "display_name": pr.author.display_name,
-                        "account_id": pr.author.account_id,
-                        "nickname": pr.author.nickname
-                    } if pr.author else None,
-                    "source": {"name": pr.source.name} if pr.source else None,
-                    "destination": {"name": pr.destination.name} if pr.destination else None,
-                    "created_on": pr.created_on.isoformat() if pr.created_on else None,
-                    "updated_on": pr.updated_on.isoformat() if pr.updated_on else None,
-                    "close_source_branch": pr.close_source_branch,
-                    "reviewers": pr.reviewers,
-                    "participants": pr.participants
-                })
-            
+                result.append(
+                    {
+                        "id": pr.id,
+                        "title": pr.title,
+                        "description": pr.description,
+                        "state": pr.state,
+                        "author": (
+                            {
+                                "uuid": pr.author.uuid,
+                                "username": pr.author.username,
+                                "display_name": pr.author.display_name,
+                                "account_id": pr.author.account_id,
+                                "nickname": pr.author.nickname,
+                            }
+                            if pr.author
+                            else None
+                        ),
+                        "source": {"name": pr.source.name} if pr.source else None,
+                        "destination": (
+                            {"name": pr.destination.name} if pr.destination else None
+                        ),
+                        "created_on": (
+                            pr.created_on.isoformat() if pr.created_on else None
+                        ),
+                        "updated_on": (
+                            pr.updated_on.isoformat() if pr.updated_on else None
+                        ),
+                        "close_source_branch": pr.close_source_branch,
+                        "reviewers": pr.reviewers,
+                        "participants": pr.participants,
+                    }
+                )
+
             logger.info(f"Found {len(result)} pull requests")
             return result
-            
+
     except Exception as e:
         logger.error(f"Error listing pull requests: {e}")
         raise
@@ -643,13 +824,13 @@ async def create_pull_request(
     source_branch: str,
     target_branch: str = "main",
     description: str = "",
-    workspace: Optional[str] = None,
+    workspace: str | None = None,
     close_source_branch: bool = False,
-    reviewers: Optional[List[str]] = None
-) -> Dict[str, Any]:
+    reviewers: list[str] | None = None,
+) -> dict[str, Any]:
     """
     Create a new pull request.
-    
+
     Args:
         repository: Repository slug
         title: Pull request title
@@ -659,38 +840,50 @@ async def create_pull_request(
         workspace: Workspace name (optional)
         close_source_branch: Whether to close source branch after merge (default: False)
         reviewers: List of reviewer UUIDs (optional)
-    
+
     Returns:
         Created pull request details
     """
-    logger.info(f"Creating pull request in {repository}: {source_branch} -> {target_branch}")
-    
+    logger.info(
+        f"Creating pull request in {repository}: {source_branch} -> {target_branch}"
+    )
+
     try:
         async with BitbucketCloudClient() as client:
             pr = await client.create_pull_request(
-                repository, title, source_branch, target_branch, 
-                description, workspace, close_source_branch, reviewers
+                repository,
+                title,
+                source_branch,
+                target_branch,
+                description,
+                workspace,
+                close_source_branch,
+                reviewers,
             )
-            
+
             result = {
                 "id": pr.id,
                 "title": pr.title,
                 "description": pr.description,
                 "state": pr.state,
-                "author": {
-                    "uuid": pr.author.uuid,
-                    "username": pr.author.username,
-                    "display_name": pr.author.display_name,
-                    "account_id": pr.author.account_id,
-                    "nickname": pr.author.nickname
-                } if pr.author else None,
+                "author": (
+                    {
+                        "uuid": pr.author.uuid,
+                        "username": pr.author.username,
+                        "display_name": pr.author.display_name,
+                        "account_id": pr.author.account_id,
+                        "nickname": pr.author.nickname,
+                    }
+                    if pr.author
+                    else None
+                ),
                 "created_on": pr.created_on.isoformat() if pr.created_on else None,
-                "updated_on": pr.updated_on.isoformat() if pr.updated_on else None
+                "updated_on": pr.updated_on.isoformat() if pr.updated_on else None,
             }
-            
+
             logger.info(f"Created pull request {pr.id} successfully")
             return result
-            
+
     except Exception as e:
         logger.error(f"Error creating pull request: {e}")
         raise
@@ -698,30 +891,28 @@ async def create_pull_request(
 
 @mcp.tool()
 async def approve_pull_request(
-    repository: str,
-    pr_id: int,
-    workspace: Optional[str] = None
-) -> Dict[str, Any]:
+    repository: str, pr_id: int, workspace: str | None = None
+) -> dict[str, Any]:
     """
     Approve a pull request.
-    
+
     Args:
         repository: Repository slug
         pr_id: Pull request ID
         workspace: Workspace name (optional)
-    
+
     Returns:
         Approval result
     """
     logger.info(f"Approving pull request {pr_id} in {repository}")
-    
+
     try:
         async with BitbucketCloudClient() as client:
             result = await client.approve_pull_request(repository, pr_id, workspace)
-            
+
             logger.info(f"Approved pull request {pr_id} successfully")
             return result
-            
+
     except Exception as e:
         logger.error(f"Error approving pull request: {e}")
         raise
@@ -729,30 +920,28 @@ async def approve_pull_request(
 
 @mcp.tool()
 async def decline_pull_request(
-    repository: str,
-    pr_id: int,
-    workspace: Optional[str] = None
-) -> Dict[str, Any]:
+    repository: str, pr_id: int, workspace: str | None = None
+) -> dict[str, Any]:
     """
     Decline a pull request.
-    
+
     Args:
         repository: Repository slug
         pr_id: Pull request ID
         workspace: Workspace name (optional)
-    
+
     Returns:
         Decline result
     """
     logger.info(f"Declining pull request {pr_id} in {repository}")
-    
+
     try:
         async with BitbucketCloudClient() as client:
             result = await client.decline_pull_request(repository, pr_id, workspace)
-            
+
             logger.info(f"Declined pull request {pr_id} successfully")
             return result
-            
+
     except Exception as e:
         logger.error(f"Error declining pull request: {e}")
         raise
@@ -763,29 +952,33 @@ async def merge_pull_request(
     repository: str,
     pr_id: int,
     merge_strategy: str = "merge_commit",
-    workspace: Optional[str] = None
-) -> Dict[str, Any]:
+    workspace: str | None = None,
+) -> dict[str, Any]:
     """
     Merge an approved pull request.
-    
+
     Args:
         repository: Repository slug
         pr_id: Pull request ID
         merge_strategy: Merge strategy (merge_commit, squash, fast_forward)
         workspace: Workspace name (optional)
-    
+
     Returns:
         Merge result
     """
-    logger.info(f"Merging pull request {pr_id} in {repository} with strategy: {merge_strategy}")
-    
+    logger.info(
+        f"Merging pull request {pr_id} in {repository} with strategy: {merge_strategy}"
+    )
+
     try:
         async with BitbucketCloudClient() as client:
-            result = await client.merge_pull_request(repository, pr_id, merge_strategy, workspace)
-            
+            result = await client.merge_pull_request(
+                repository, pr_id, merge_strategy, workspace
+            )
+
             logger.info(f"Merged pull request {pr_id} successfully")
             return result
-            
+
     except Exception as e:
         logger.error(f"Error merging pull request: {e}")
         raise
@@ -793,47 +986,61 @@ async def merge_pull_request(
 
 @mcp.tool()
 async def list_pull_request_comments(
-    repository: str,
-    pr_id: int,
-    workspace: Optional[str] = None
-) -> List[Dict[str, Any]]:
+    repository: str, pr_id: int, workspace: str | None = None
+) -> list[dict[str, Any]]:
     """
     List comments on a pull request.
-    
+
     Args:
         repository: Repository slug
         pr_id: Pull request ID
         workspace: Workspace name (optional)
-    
+
     Returns:
         List of comments
     """
     logger.info(f"Listing comments for pull request {pr_id} in {repository}")
-    
+
     try:
         async with BitbucketCloudClient() as client:
-            comments = await client.list_pull_request_comments(repository, pr_id, workspace)
-            
+            comments = await client.list_pull_request_comments(
+                repository, pr_id, workspace
+            )
+
             result = []
             for comment in comments:
-                result.append({
-                    "id": comment.id,
-                    "content": comment.content,
-                    "user": {
-                        "uuid": comment.user.uuid,
-                        "username": comment.user.username,
-                        "display_name": comment.user.display_name,
-                        "account_id": comment.user.account_id,
-                        "nickname": comment.user.nickname
-                    } if comment.user else None,
-                    "created_on": comment.created_on.isoformat() if comment.created_on else None,
-                    "updated_on": comment.updated_on.isoformat() if comment.updated_on else None,
-                    "parent": comment.parent
-                })
-            
+                result.append(
+                    {
+                        "id": comment.id,
+                        "content": comment.content,
+                        "user": (
+                            {
+                                "uuid": comment.user.uuid,
+                                "username": comment.user.username,
+                                "display_name": comment.user.display_name,
+                                "account_id": comment.user.account_id,
+                                "nickname": comment.user.nickname,
+                            }
+                            if comment.user
+                            else None
+                        ),
+                        "created_on": (
+                            comment.created_on.isoformat()
+                            if comment.created_on
+                            else None
+                        ),
+                        "updated_on": (
+                            comment.updated_on.isoformat()
+                            if comment.updated_on
+                            else None
+                        ),
+                        "parent": comment.parent,
+                    }
+                )
+
             logger.info(f"Found {len(result)} comments")
             return result
-            
+
     except Exception as e:
         logger.error(f"Error listing comments: {e}")
         raise
@@ -844,46 +1051,56 @@ async def create_pull_request_comment(
     repository: str,
     pr_id: int,
     content: str,
-    workspace: Optional[str] = None,
-    parent_id: Optional[int] = None
-) -> Dict[str, Any]:
+    workspace: str | None = None,
+    parent_id: int | None = None,
+) -> dict[str, Any]:
     """
     Create a comment on a pull request.
-    
+
     Args:
         repository: Repository slug
         pr_id: Pull request ID
         content: Comment content
         workspace: Workspace name (optional)
         parent_id: Parent comment ID for replies (optional)
-    
+
     Returns:
         Created comment details
     """
     logger.info(f"Creating comment on pull request {pr_id} in {repository}")
-    
+
     try:
         async with BitbucketCloudClient() as client:
-            comment = await client.create_pull_request_comment(repository, pr_id, content, workspace, parent_id)
-            
+            comment = await client.create_pull_request_comment(
+                repository, pr_id, content, workspace, parent_id
+            )
+
             result = {
                 "id": comment.id,
                 "content": comment.content,
-                "user": {
-                    "uuid": comment.user.uuid,
-                    "username": comment.user.username,
-                    "display_name": comment.user.display_name,
-                    "account_id": comment.user.account_id,
-                    "nickname": comment.user.nickname
-                } if comment.user else None,
-                "created_on": comment.created_on.isoformat() if comment.created_on else None,
-                "updated_on": comment.updated_on.isoformat() if comment.updated_on else None,
-                "parent": comment.parent
+                "user": (
+                    {
+                        "uuid": comment.user.uuid,
+                        "username": comment.user.username,
+                        "display_name": comment.user.display_name,
+                        "account_id": comment.user.account_id,
+                        "nickname": comment.user.nickname,
+                    }
+                    if comment.user
+                    else None
+                ),
+                "created_on": (
+                    comment.created_on.isoformat() if comment.created_on else None
+                ),
+                "updated_on": (
+                    comment.updated_on.isoformat() if comment.updated_on else None
+                ),
+                "parent": comment.parent,
             }
-            
+
             logger.info(f"Created comment {comment.id} successfully")
             return result
-            
+
     except Exception as e:
         logger.error(f"Error creating comment: {e}")
         raise
@@ -904,7 +1121,7 @@ def main():
     logger.info("  - merge_pull_request: Merge approved pull request")
     logger.info("  - list_pull_request_comments: List comments on pull request")
     logger.info("  - create_pull_request_comment: Create comment on pull request")
-    
+
     # Run the server using STDIO transport (default)
     mcp.run()
 

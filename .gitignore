@@ -13,3 +13,12 @@ wheels/
 .env
 .env.local
 .env.*.local
+
+# Tool cache directories
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# GitHub instructions (internal use)
+.github/instructions/
+.github/hooks/
