@@ -9,8 +9,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import tomllib
-
 
 def run_command(cmd: str, check: bool = True) -> subprocess.CompletedProcess:
     """Executa um comando e retorna o resultado."""
@@ -28,9 +26,15 @@ def run_command(cmd: str, check: bool = True) -> subprocess.CompletedProcess:
 
 def get_current_version() -> str:
     """Obtém a versão atual do pyproject.toml."""
-    with open("pyproject.toml", "rb") as f:
-        data = tomllib.load(f)
-    return data["project"]["version"]
+    with open("pyproject.toml", "r") as f:
+        content = f.read()
+    
+    # Busca a linha version = "x.y.z"
+    match = re.search(r'version = "([^"]+)"', content)
+    if match:
+        return match.group(1)
+    
+    raise ValueError("Versão não encontrada no pyproject.toml")
 
 
 def validate_version(version: str) -> bool:
