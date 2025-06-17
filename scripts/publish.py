@@ -28,12 +28,12 @@ def get_current_version() -> str:
     """Obtém a versão atual do pyproject.toml."""
     with open("pyproject.toml", "r") as f:
         content = f.read()
-    
+
     # Busca a linha version = "x.y.z"
     match = re.search(r'version = "([^"]+)"', content)
     if match:
         return match.group(1)
-    
+
     raise ValueError("Versão não encontrada no pyproject.toml")
 
 
