@@ -477,6 +477,63 @@ class BitbucketCloudClient:
             parent=item.get("parent", {}).get("id") if item.get("parent") else None,
         )
 
+    async def create_pull_request_inline_comment(
+        self,
+        repository: str,
+        pr_id: int,
+        content: str,
+        filename: str,
+        line_number: int,
+        workspace: str | None = None,
+        parent_id: int | None = None,
+    ) -> BitbucketComment:
+        """Create inline comment on specific line in pull request diff"""
+        workspace = self._get_workspace(workspace)
+        endpoint = (
+            f"/repositories/{workspace}/{repository}/pullrequests/{pr_id}/comments"
+        )
+
+        data = {
+            "content": {"raw": content},
+            "inline": {
+                "to": line_number,
+                "path": filename
+            }
+        }
+
+        if parent_id:
+            data["parent"] = {"id": parent_id}
+
+        item = await self._request("POST", endpoint, json=data)
+
+        user_data = item.get("user")
+        user = None
+        if user_data:
+            user = BitbucketUser(
+                uuid=user_data.get("uuid"),
+                username=user_data.get("username"),
+                display_name=user_data.get("display_name"),
+                account_id=user_data.get("account_id"),
+                nickname=user_data.get("nickname"),
+            )
+
+        return BitbucketComment(
+            id=item.get("id"),
+            content=item.get("content", {}),
+            user=user,
+            created_on=(
+                datetime.fromisoformat(item.get("created_on").replace("Z", "+00:00"))
+                if item.get("created_on")
+                else None
+            ),
+            updated_on=(
+                datetime.fromisoformat(item.get("updated_on").replace("Z", "+00:00"))
+                if item.get("updated_on")
+                else None
+            ),
+            parent=item.get("parent", {}).get("id") if item.get("parent") else None,
+        )
+
     # Commits
     async def list_commits(
         self,
@@ -497,6 +554,49 @@ class BitbucketCloudClient:
         data = await self._request("GET", endpoint, params=params)
 
         return data.get("values", [])
+
+    async def get_pull_request_diff(
+        self,
+        repository: str,
+        pr_id: int,
+        workspace: str | None = None,
+        context: int = 3,
+    ) -> str:
+        """Get pull request diff"""
+        workspace = self._get_workspace(workspace)
+        endpoint = f"/repositories/{workspace}/{repository}/pullrequests/{pr_id}/diff"
+        
+        params = {"context": context}
+        
+        try:
+            url = f"{self.base_url}{endpoint}"
+            auth = self._get_auth()
+            
+            response = await self._client.request("GET", url, auth=auth, params=params)
+            response.raise_for_status()
+            
+            # Return the raw diff text
+            return response.text
+            
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error {e.response.status_code}: {e.response.text}")
+            raise
+        except Exception as e:
+            logger.error(f"Request error: {e}")
+            raise
+
+    async def get_pull_request_diffstat(
+        self,
+        repository: str,
+        pr_id: int,
+        workspace: str | None = None,
+    ) -> dict[str, Any]:
+        """Get pull request diffstat (summary of changes)"""
+        workspace = self._get_workspace(workspace)
+        endpoint = f"/repositories/{workspace}/{repository}/pullrequests/{pr_id}/diffstat"
+        
+        data = await self._request("GET", endpoint)
+        return data
 
 
 # Initialize FastMCP server
@@ -522,6 +622,9 @@ mcp = FastMCP(
     - merge_pull_request: Merge approved pull request
     - list_pull_request_comments: List comments on pull request
     - create_pull_request_comment: Create comment on pull request
+    - create_pull_request_inline_comment: Create inline comment on specific line in pull request diff
+    - get_pull_request_diff: Get the diff of a pull request for analysis
+    - get_pull_request_diffstat: Get the diffstat (summary of changes) of a pull request
     """,
 )
 
@@ -1106,6 +1209,155 @@ async def create_pull_request_comment(
         raise
 
 
+@mcp.tool()
+async def create_pull_request_inline_comment(
+    repository: str,
+    pr_id: int,
+    content: str,
+    filename: str,
+    line_number: int,
+    workspace: str | None = None,
+    parent_id: int | None = None,
+) -> dict[str, Any]:
+    """
+    Create an inline comment on a specific line in a pull request diff.
+
+    Args:
+        repository: Repository slug
+        pr_id: Pull request ID
+        content: Comment content
+        filename: Path to the file in the repository
+        line_number: Line number in the file to comment on
+        workspace: Workspace name (optional)
+        parent_id: Parent comment ID for replies (optional)
+
+    Returns:
+        Created inline comment details
+    """
+    logger.info(f"Creating inline comment on pull request {pr_id} in {repository} at {filename}:{line_number}")
+
+    try:
+        async with BitbucketCloudClient() as client:
+            comment = await client.create_pull_request_inline_comment(
+                repository, pr_id, content, filename, line_number, workspace, parent_id
+            )
+
+            result = {
+                "id": comment.id,
+                "content": comment.content,
+                "user": (
+                    {
+                        "uuid": comment.user.uuid,
+                        "username": comment.user.username,
+                        "display_name": comment.user.display_name,
+                        "account_id": comment.user.account_id,
+                        "nickname": comment.user.nickname,
+                    }
+                    if comment.user
+                    else None
+                ),
+                "created_on": (
+                    comment.created_on.isoformat() if comment.created_on else None
+                ),
+                "updated_on": (
+                    comment.updated_on.isoformat() if comment.updated_on else None
+                ),
+                "parent": comment.parent,
+            }
+
+            logger.info(f"Created inline comment {comment.id} successfully on {filename}:{line_number}")
+            return result
+
+    except Exception as e:
+        logger.error(f"Error creating inline comment: {e}")
+        raise
+
+
+@mcp.tool()
+async def get_pull_request_diff(
+    repository: str,
+    pr_id: int,
+    workspace: str | None = None,
+    context: int = 3,
+) -> str:
+    """
+    Get the diff of a pull request.
+
+    Args:
+        repository: Repository slug
+        pr_id: Pull request ID
+        workspace: Workspace name (optional)
+        context: Number of context lines around changes (default: 3)
+
+    Returns:
+        Raw diff text showing all changes in the pull request
+    """
+    logger.info(f"Getting diff for pull request {pr_id} in {repository}")
+
+    try:
+        async with BitbucketCloudClient() as client:
+            diff_text = await client.get_pull_request_diff(
+                repository, pr_id, workspace, context
+            )
+
+            logger.info(f"Retrieved diff for PR {pr_id} ({len(diff_text)} characters)")
+            return diff_text
+
+    except Exception as e:
+        logger.error(f"Error getting pull request diff: {e}")
+        raise
+
+
+@mcp.tool()
+async def get_pull_request_diffstat(
+    repository: str,
+    pr_id: int,
+    workspace: str | None = None,
+) -> dict[str, Any]:
+    """
+    Get the diffstat (summary of changes) of a pull request.
+
+    Args:
+        repository: Repository slug
+        pr_id: Pull request ID
+        workspace: Workspace name (optional)
+
+    Returns:
+        Summary of changes including files modified, lines added/removed
+    """
+    logger.info(f"Getting diffstat for pull request {pr_id} in {repository}")
+
+    try:
+        async with BitbucketCloudClient() as client:
+            diffstat = await client.get_pull_request_diffstat(
+                repository, pr_id, workspace
+            )
+
+            # Process the diffstat to make it more readable
+            result = {
+                "files_changed": len(diffstat.get("values", [])),
+                "files": []
+            }
+
+            for file_stat in diffstat.get("values", []):
+                file_info = {
+                    "type": file_stat.get("type", "modified"),
+                    "status": file_stat.get("status", "modified"),
+                    "lines_added": file_stat.get("lines_added", 0),
+                    "lines_removed": file_stat.get("lines_removed", 0),
+                    "old_file": file_stat.get("old", {}).get("path") if file_stat.get("old") else None,
+                    "new_file": file_stat.get("new", {}).get("path") if file_stat.get("new") else None,
+                }
+                result["files"].append(file_info)
+
+            logger.info(f"Retrieved diffstat for PR {pr_id} - {result['files_changed']} files changed")
+            return result
+
+    except Exception as e:
+        logger.error(f"Error getting pull request diffstat: {e}")
+        raise
+
+
 def main():
     """Main entry point for the MCP server"""
     logger.info("Starting Bitbucket Cloud MCP Server")
@@ -1121,6 +1373,11 @@ def main():
     logger.info("  - merge_pull_request: Merge approved pull request")
     logger.info("  - list_pull_request_comments: List comments on pull request")
     logger.info("  - create_pull_request_comment: Create comment on pull request")
+    logger.info("  - create_pull_request_inline_comment: Create inline comment on specific line in pull request diff")
+    logger.info("  - get_pull_request_diff: Get pull request diff for analysis")
+    logger.info("  - get_pull_request_diffstat: Get pull request diffstat summary")
+    logger.info("  - get_pull_request_diff: Get the diff of a pull request")
+    logger.info("  - get_pull_request_diffstat: Get the diffstat (summary of changes) of a pull request")
 
     # Run the server using STDIO transport (default)
     mcp.run()

@@ -235,6 +235,142 @@ class TestMCPTools:
         assert result[0]["language"] == "Python"
 
 
+class TestInlineComments:
+    """Testes para comentários inline em pull requests"""
+
+    @patch("server.BitbucketCloudClient")
+    async def test_create_pull_request_inline_comment(self, mock_client_class):
+        """Testa criação de comentário inline em pull request"""
+        from datetime import datetime
+
+        from server import create_pull_request_inline_comment
+        from src.models import BitbucketComment, BitbucketUser
+
+        # Mock client and response
+        mock_client = AsyncMock()
+        mock_user = BitbucketUser(
+            uuid="user-uuid",
+            username="testuser",
+            display_name="Test User",
+            account_id="account-123",
+            nickname="tester",
+        )
+        mock_comment = BitbucketComment(
+            id=456,
+            content={"raw": "This function could be optimized"},
+            user=mock_user,
+            created_on=datetime.now(),
+            updated_on=datetime.now(),
+            parent=None,
+        )
+        mock_client.create_pull_request_inline_comment.return_value = mock_comment
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        # Test
+        result = await create_pull_request_inline_comment(
+            repository="test-repo",
+            pr_id=123,
+            content="This function could be optimized",
+            filename="src/main.py",
+            line_number=42
+        )
+
+        assert result["id"] == 456
+        assert result["content"]["raw"] == "This function could be optimized"
+        assert result["user"]["username"] == "testuser"
+        mock_client.create_pull_request_inline_comment.assert_called_once_with(
+            "test-repo", 123, "This function could be optimized", "src/main.py", 42, None, None
+        )
+
+
+class TestDiffAnalysis:
+    """Testes para análise de diff de pull requests"""
+
+    @patch("server.BitbucketCloudClient")
+    async def test_get_pull_request_diff(self, mock_client_class):
+        """Testa obtenção do diff de pull request"""
+        from server import get_pull_request_diff
+
+        # Mock client and response
+        mock_client = AsyncMock()
+        mock_diff = """diff --git a/src/main.py b/src/main.py
+index 1234567..abcdefg 100644
+--- a/src/main.py
++++ b/src/main.py
+@@ -1,4 +1,5 @@
+ def main():
++    print("Hello, World!")
+     pass
+     
+ if __name__ == "__main__":"""
+        
+        mock_client.get_pull_request_diff.return_value = mock_diff
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        # Test
+        result = await get_pull_request_diff(repository="test-repo", pr_id=123)
+
+        assert "diff --git" in result
+        assert "src/main.py" in result
+        assert 'print("Hello, World!")' in result
+        mock_client.get_pull_request_diff.assert_called_once_with(
+            "test-repo", 123, None, 3
+        )
+
+    @patch("server.BitbucketCloudClient")
+    async def test_get_pull_request_diffstat(self, mock_client_class):
+        """Testa obtenção do diffstat de pull request"""
+        from server import get_pull_request_diffstat
+
+        # Mock client and response
+        mock_client = AsyncMock()
+        mock_diffstat = {
+            "values": [
+                {
+                    "type": "modified",
+                    "status": "modified",
+                    "lines_added": 5,
+                    "lines_removed": 2,
+                    "old": {"path": "src/main.py"},
+                    "new": {"path": "src/main.py"}
+                },
+                {
+                    "type": "added",
+                    "status": "added",
+                    "lines_added": 10,
+                    "lines_removed": 0,
+                    "old": None,
+                    "new": {"path": "src/utils.py"}
+                }
+            ]
+        }
+        
+        mock_client.get_pull_request_diffstat.return_value = mock_diffstat
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        # Test
+        result = await get_pull_request_diffstat(repository="test-repo", pr_id=123)
+
+        assert result["files_changed"] == 2
+        assert len(result["files"]) == 2
+        
+        # Check first file
+        assert result["files"][0]["new_file"] == "src/main.py"
+        assert result["files"][0]["lines_added"] == 5
+        assert result["files"][0]["lines_removed"] == 2
+        assert result["files"][0]["status"] == "modified"
+        
+        # Check second file
+        assert result["files"][1]["new_file"] == "src/utils.py"
+        assert result["files"][1]["lines_added"] == 10
+        assert result["files"][1]["lines_removed"] == 0
+        assert result["files"][1]["status"] == "added"
+        
+        mock_client.get_pull_request_diffstat.assert_called_once_with(
+            "test-repo", 123, None
+        )
+
+
 class TestErrorHandling:
     """Testes para tratamento de erros"""
 

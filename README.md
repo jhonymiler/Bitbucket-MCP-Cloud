@@ -9,7 +9,7 @@ A complete **Model Context Protocol (MCP)** server for integration with the Bitb
 
 ## 🚀 Features
 
-### ✅ Implemented (11 tools)
+### ✅ Implemented (14 tools)
 
 - **`list_projects`** - List projects in workspace
 - **`list_repositories`** - List repositories in workspace/project
@@ -22,6 +22,9 @@ A complete **Model Context Protocol (MCP)** server for integration with the Bitb
 - **`merge_pull_request`** - Merge approved pull request
 - **`list_pull_request_comments`** - List comments on pull request
 - **`create_pull_request_comment`** - Create comment on pull request
+- **`create_pull_request_inline_comment`** - Create inline comment on specific line in pull request diff
+- **`get_pull_request_diff`** - Get pull request diff for analysis
+- **`get_pull_request_diffstat`** - Get pull request diffstat summary
 
 ## � Installation
 
@@ -169,6 +172,35 @@ await create_pull_request_comment(
     content="I agree!",
     parent_id=456
 )
+
+# Create inline comment on specific line in diff
+await create_pull_request_inline_comment(
+    repository="my-repo",
+    pr_id=123,
+    content="This function could be optimized",
+    filename="src/main.py",
+    line_number=42
+)
+```
+
+### Diff Analysis
+
+```python
+# Get full diff of a pull request
+diff_text = await get_pull_request_diff(repository="my-repo", pr_id=123)
+
+# Get diff with more context lines
+diff_text = await get_pull_request_diff(
+    repository="my-repo", 
+    pr_id=123, 
+    context=5
+)
+
+# Get diffstat summary of changes
+diffstat = await get_pull_request_diffstat(repository="my-repo", pr_id=123)
+print(f"Files changed: {diffstat['files_changed']}")
+for file in diffstat['files']:
+    print(f"{file['new_file']}: +{file['lines_added']} -{file['lines_removed']}")
 ```
 
 ## 🏗️ Architecture
