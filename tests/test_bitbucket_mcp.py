@@ -272,14 +272,20 @@ class TestInlineComments:
             pr_id=123,
             content="This function could be optimized",
             filename="src/main.py",
-            line_number=42
+            line_number=42,
         )
 
         assert result["id"] == 456
         assert result["content"]["raw"] == "This function could be optimized"
         assert result["user"]["username"] == "testuser"
         mock_client.create_pull_request_inline_comment.assert_called_once_with(
-            "test-repo", 123, "This function could be optimized", "src/main.py", 42, None, None
+            "test-repo",
+            123,
+            "This function could be optimized",
+            "src/main.py",
+            42,
+            None,
+            None,
         )
 
 
@@ -303,7 +309,7 @@ index 1234567..abcdefg 100644
      pass
      
  if __name__ == "__main__":"""
-        
+
         mock_client.get_pull_request_diff.return_value = mock_diff
         mock_client_class.return_value.__aenter__.return_value = mock_client
 
@@ -332,7 +338,7 @@ index 1234567..abcdefg 100644
                     "lines_added": 5,
                     "lines_removed": 2,
                     "old": {"path": "src/main.py"},
-                    "new": {"path": "src/main.py"}
+                    "new": {"path": "src/main.py"},
                 },
                 {
                     "type": "added",
@@ -340,11 +346,11 @@ index 1234567..abcdefg 100644
                     "lines_added": 10,
                     "lines_removed": 0,
                     "old": None,
-                    "new": {"path": "src/utils.py"}
-                }
+                    "new": {"path": "src/utils.py"},
+                },
             ]
         }
-        
+
         mock_client.get_pull_request_diffstat.return_value = mock_diffstat
         mock_client_class.return_value.__aenter__.return_value = mock_client
 
@@ -353,19 +359,19 @@ index 1234567..abcdefg 100644
 
         assert result["files_changed"] == 2
         assert len(result["files"]) == 2
-        
+
         # Check first file
         assert result["files"][0]["new_file"] == "src/main.py"
         assert result["files"][0]["lines_added"] == 5
         assert result["files"][0]["lines_removed"] == 2
         assert result["files"][0]["status"] == "modified"
-        
+
         # Check second file
         assert result["files"][1]["new_file"] == "src/utils.py"
         assert result["files"][1]["lines_added"] == 10
         assert result["files"][1]["lines_removed"] == 0
         assert result["files"][1]["status"] == "added"
-        
+
         mock_client.get_pull_request_diffstat.assert_called_once_with(
             "test-repo", 123, None
         )

@@ -495,10 +495,7 @@ class BitbucketCloudClient:
 
         data = {
             "content": {"raw": content},
-            "inline": {
-                "to": line_number,
-                "path": filename
-            }
+            "inline": {"to": line_number, "path": filename},
         }
 
         if parent_id:
@@ -565,19 +562,19 @@ class BitbucketCloudClient:
         """Get pull request diff"""
         workspace = self._get_workspace(workspace)
         endpoint = f"/repositories/{workspace}/{repository}/pullrequests/{pr_id}/diff"
-        
+
         params = {"context": context}
-        
+
         try:
             url = f"{self.base_url}{endpoint}"
             auth = self._get_auth()
-            
+
             response = await self._client.request("GET", url, auth=auth, params=params)
             response.raise_for_status()
-            
+
             # Return the raw diff text
             return response.text
-            
+
         except httpx.HTTPStatusError as e:
             logger.error(f"HTTP error {e.response.status_code}: {e.response.text}")
             raise
@@ -593,8 +590,10 @@ class BitbucketCloudClient:
     ) -> dict[str, Any]:
         """Get pull request diffstat (summary of changes)"""
         workspace = self._get_workspace(workspace)
-        endpoint = f"/repositories/{workspace}/{repository}/pullrequests/{pr_id}/diffstat"
-        
+        endpoint = (
+            f"/repositories/{workspace}/{repository}/pullrequests/{pr_id}/diffstat"
+        )
+
         data = await self._request("GET", endpoint)
         return data
 
@@ -1234,7 +1233,9 @@ async def create_pull_request_inline_comment(
     Returns:
         Created inline comment details
     """
-    logger.info(f"Creating inline comment on pull request {pr_id} in {repository} at {filename}:{line_number}")
+    logger.info(
+        f"Creating inline comment on pull request {pr_id} in {repository} at {filename}:{line_number}"
+    )
 
     try:
         async with BitbucketCloudClient() as client:
@@ -1265,7 +1266,9 @@ async def create_pull_request_inline_comment(
                 "parent": comment.parent,
             }
 
-            logger.info(f"Created inline comment {comment.id} successfully on {filename}:{line_number}")
+            logger.info(
+                f"Created inline comment {comment.id} successfully on {filename}:{line_number}"
+            )
             return result
 
     except Exception as e:
@@ -1334,10 +1337,7 @@ async def get_pull_request_diffstat(
             )
 
             # Process the diffstat to make it more readable
-            result = {
-                "files_changed": len(diffstat.get("values", [])),
-                "files": []
-            }
+            result = {"files_changed": len(diffstat.get("values", [])), "files": []}
 
             for file_stat in diffstat.get("values", []):
                 file_info = {
@@ -1345,12 +1345,22 @@ async def get_pull_request_diffstat(
                     "status": file_stat.get("status", "modified"),
                     "lines_added": file_stat.get("lines_added", 0),
                     "lines_removed": file_stat.get("lines_removed", 0),
-                    "old_file": file_stat.get("old", {}).get("path") if file_stat.get("old") else None,
-                    "new_file": file_stat.get("new", {}).get("path") if file_stat.get("new") else None,
+                    "old_file": (
+                        file_stat.get("old", {}).get("path")
+                        if file_stat.get("old")
+                        else None
+                    ),
+                    "new_file": (
+                        file_stat.get("new", {}).get("path")
+                        if file_stat.get("new")
+                        else None
+                    ),
                 }
                 result["files"].append(file_info)
 
-            logger.info(f"Retrieved diffstat for PR {pr_id} - {result['files_changed']} files changed")
+            logger.info(
+                f"Retrieved diffstat for PR {pr_id} - {result['files_changed']} files changed"
+            )
             return result
 
     except Exception as e:
@@ -1373,11 +1383,15 @@ def main():
     logger.info("  - merge_pull_request: Merge approved pull request")
     logger.info("  - list_pull_request_comments: List comments on pull request")
     logger.info("  - create_pull_request_comment: Create comment on pull request")
-    logger.info("  - create_pull_request_inline_comment: Create inline comment on specific line in pull request diff")
+    logger.info(
+        "  - create_pull_request_inline_comment: Create inline comment on specific line in pull request diff"
+    )
     logger.info("  - get_pull_request_diff: Get pull request diff for analysis")
     logger.info("  - get_pull_request_diffstat: Get pull request diffstat summary")
     logger.info("  - get_pull_request_diff: Get the diff of a pull request")
-    logger.info("  - get_pull_request_diffstat: Get the diffstat (summary of changes) of a pull request")
+    logger.info(
+        "  - get_pull_request_diffstat: Get the diffstat (summary of changes) of a pull request"
+    )
 
     # Run the server using STDIO transport (default)
     mcp.run()
