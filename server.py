@@ -41,7 +41,7 @@ class BitbucketCloudClient:
         self._client = None
 
     async def __aenter__(self):
-        self._client = httpx.AsyncClient()
+        self._client = httpx.AsyncClient(follow_redirects=True)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -63,6 +63,22 @@ class BitbucketCloudClient:
             response = await self._client.request(method, url, auth=auth, **kwargs)
             response.raise_for_status()
             return response.json()
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error {e.response.status_code}: {e.response.text}")
+            raise
+        except Exception as e:
+            logger.error(f"Request error: {e}")
+            raise
+
+    async def _request_text(self, method: str, endpoint: str, **kwargs) -> str:
+        """Make authenticated request to Bitbucket API and return text response"""
+        url = f"{self.base_url}{endpoint}"
+        auth = self._get_auth()
+
+        try:
+            response = await self._client.request(method, url, auth=auth, **kwargs)
+            response.raise_for_status()
+            return response.text
         except httpx.HTTPStatusError as e:
             logger.error(f"HTTP error {e.response.status_code}: {e.response.text}")
             raise
@@ -562,25 +578,9 @@ class BitbucketCloudClient:
         """Get pull request diff"""
         workspace = self._get_workspace(workspace)
         endpoint = f"/repositories/{workspace}/{repository}/pullrequests/{pr_id}/diff"
-
         params = {"context": context}
-
-        try:
-            url = f"{self.base_url}{endpoint}"
-            auth = self._get_auth()
-
-            response = await self._client.request("GET", url, auth=auth, params=params)
-            response.raise_for_status()
-
-            # Return the raw diff text
-            return response.text
-
-        except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error {e.response.status_code}: {e.response.text}")
-            raise
-        except Exception as e:
-            logger.error(f"Request error: {e}")
-            raise
+        
+        return await self._request_text("GET", endpoint, params=params)
 
     async def get_pull_request_diffstat(
         self,
