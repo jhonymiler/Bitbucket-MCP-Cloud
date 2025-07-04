@@ -36,7 +36,7 @@ jobs:
         run: uv run black --check .
       
       - name: Run type checking
-        run: uv run mypy src
+        run: uv run mypy server.py src/bitbucket_mcp_cloud/
 
   build:
     needs: test
