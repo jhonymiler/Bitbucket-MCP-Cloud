@@ -6,11 +6,13 @@ Main entry point for the Bitbucket Cloud MCP server
 
 import sys
 
+
 def main():
     """Main entry point for the MCP server"""
     # Se executado com --help, mostrar ajuda e sair
     if "--help" in sys.argv or "-h" in sys.argv:
-        print("""
+        print(
+            """
 Bitbucket Cloud MCP Server
 
 Usage:
@@ -41,11 +43,14 @@ Available Tools:
   - get_pull_request_diffstat: Get pull request diffstat summary
 
 For more information: https://github.com/jhonymiler/Bitbucket-MCP-Cloud
-        """)
+        """
+        )
         sys.exit(0)
-    
+
     from src.server import main as server_main
+
     server_main()
+
 
 if __name__ == "__main__":
     main()
