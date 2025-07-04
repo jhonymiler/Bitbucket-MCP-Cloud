@@ -8,13 +8,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 # Import our modules
-from src.models import (
+from bitbucket_mcp_cloud.models import (
     BitbucketProject,
     BitbucketPullRequest,
     BitbucketRepository,
     BitbucketUser,
 )
-from src.utils import get_env_var, setup_logger
+from bitbucket_mcp_cloud.utils import get_env_var, setup_logger
 
 
 class TestModels:
@@ -243,7 +243,7 @@ class TestInlineComments:
         from datetime import datetime
 
         from server import create_pull_request_inline_comment
-        from src.models import BitbucketComment, BitbucketUser
+        from bitbucket_mcp_cloud.models import BitbucketComment, BitbucketUser
 
         # Mock client and response
         mock_client = AsyncMock()

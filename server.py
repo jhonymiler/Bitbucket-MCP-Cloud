@@ -12,15 +12,28 @@ from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
 # Import our custom models and utilities
-from src.models import (
-    BitbucketBranch,
-    BitbucketComment,
-    BitbucketProject,
-    BitbucketPullRequest,
-    BitbucketRepository,
-    BitbucketUser,
-)
-from src.utils import get_env_var, setup_logger
+try:
+    # Try local import first (when running locally)
+    from src.models import (
+        BitbucketBranch,
+        BitbucketComment,
+        BitbucketProject,
+        BitbucketPullRequest,
+        BitbucketRepository,
+        BitbucketUser,
+    )
+    from src.utils import get_env_var, setup_logger
+except ImportError:
+    # Fallback to package import (when installed via pip/uvx)
+    from bitbucket_mcp_cloud.models import (
+        BitbucketBranch,
+        BitbucketComment,
+        BitbucketProject,
+        BitbucketPullRequest,
+        BitbucketRepository,
+        BitbucketUser,
+    )
+    from bitbucket_mcp_cloud.utils import get_env_var, setup_logger
 
 # Load environment variables
 load_dotenv()
