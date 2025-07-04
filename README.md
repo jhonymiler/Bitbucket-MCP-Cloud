@@ -293,7 +293,14 @@ uv run black --check server.py src/ tests/
 
 ## 📝 Changelog
 
-### v1.3.4 (Latest)
+### v1.3.5 (Latest)
+- ✅ Package restructured for optimal PyPI distribution
+- ✅ Server.py in root with conditional imports
+- ✅ All execution methods tested and working
+- ✅ Enhanced build system and CI/CD
+- ✅ Production-ready package structure
+
+### v1.3.4
 - ✅ Server correctly included in PyPI wheel
 - ✅ All execution methods working (uvx, pip, development)
 - ✅ Complete test coverage
