@@ -33,36 +33,43 @@ logger = setup_logger(__name__)
 class BitbucketCloudClient:
     """Complete Bitbucket Cloud API client with all required methods"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.username = get_env_var("BITBUCKET_USERNAME")
         self.app_password = get_env_var("BITBUCKET_TOKEN")
         self.default_workspace = get_env_var("BITBUCKET_DEFAULT_WORKSPACE")
         self.base_url = "https://api.bitbucket.org/2.0"
-        self._client = None
+        self._client: httpx.AsyncClient | None = None
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "BitbucketCloudClient":
         self._client = httpx.AsyncClient(follow_redirects=True)
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         if self._client:
             await self._client.aclose()
 
-    def _get_auth(self):
+    def _get_auth(self) -> tuple[str, str]:
         return (self.username, self.app_password)
 
     def _get_workspace(self, workspace: str | None = None) -> str:
         return workspace or self.default_workspace
 
-    async def _request(self, method: str, endpoint: str, **kwargs) -> dict[str, Any]:
+    async def _request(
+        self, method: str, endpoint: str, **kwargs: Any
+    ) -> dict[str, Any]:
         """Make authenticated request to Bitbucket API"""
         url = f"{self.base_url}{endpoint}"
         auth = self._get_auth()
 
         try:
+            if self._client is None:
+                raise RuntimeError("Client not initialized")
             response = await self._client.request(method, url, auth=auth, **kwargs)
             response.raise_for_status()
-            return response.json()
+            json_response = response.json()
+            if not isinstance(json_response, dict):
+                return {}
+            return json_response
         except httpx.HTTPStatusError as e:
             logger.error(f"HTTP error {e.response.status_code}: {e.response.text}")
             raise
@@ -70,12 +77,14 @@ class BitbucketCloudClient:
             logger.error(f"Request error: {e}")
             raise
 
-    async def _request_text(self, method: str, endpoint: str, **kwargs) -> str:
+    async def _request_text(self, method: str, endpoint: str, **kwargs: Any) -> str:
         """Make authenticated request to Bitbucket API and return text response"""
         url = f"{self.base_url}{endpoint}"
         auth = self._get_auth()
 
         try:
+            if self._client is None:
+                raise RuntimeError("Client not initialized")
             response = await self._client.request(method, url, auth=auth, **kwargs)
             response.raise_for_status()
             return response.text
@@ -276,20 +285,24 @@ class BitbucketCloudClient:
         destination = BitbucketBranch(name=dest_data.get("name")) if dest_data else None
 
         return BitbucketPullRequest(
-            id=item.get("id"),
-            title=item.get("title"),
+            id=item.get("id") or 0,
+            title=item.get("title") or "",
             description=item.get("description"),
-            state=item.get("state"),
+            state=item.get("state") or "",
             author=author,
             source=source,
             destination=destination,
             created_on=(
-                datetime.fromisoformat(item.get("created_on").replace("Z", "+00:00"))
+                datetime.fromisoformat(
+                    item.get("created_on", "").replace("Z", "+00:00")
+                )
                 if item.get("created_on")
                 else None
             ),
             updated_on=(
-                datetime.fromisoformat(item.get("updated_on").replace("Z", "+00:00"))
+                datetime.fromisoformat(
+                    item.get("updated_on", "").replace("Z", "+00:00")
+                )
                 if item.get("updated_on")
                 else None
             ),
@@ -339,18 +352,22 @@ class BitbucketCloudClient:
             )
 
         return BitbucketPullRequest(
-            id=item.get("id"),
-            title=item.get("title"),
+            id=item.get("id") or 0,
+            title=item.get("title") or "",
             description=item.get("description"),
-            state=item.get("state"),
+            state=item.get("state") or "",
             author=author,
             created_on=(
-                datetime.fromisoformat(item.get("created_on").replace("Z", "+00:00"))
+                datetime.fromisoformat(
+                    item.get("created_on", "").replace("Z", "+00:00")
+                )
                 if item.get("created_on")
                 else None
             ),
             updated_on=(
-                datetime.fromisoformat(item.get("updated_on").replace("Z", "+00:00"))
+                datetime.fromisoformat(
+                    item.get("updated_on", "").replace("Z", "+00:00")
+                )
                 if item.get("updated_on")
                 else None
             ),
@@ -461,7 +478,7 @@ class BitbucketCloudClient:
         data = {"content": {"raw": content}}
 
         if parent_id:
-            data["parent"] = {"id": parent_id}
+            data["parent"] = {"id": str(parent_id)}
 
         item = await self._request("POST", endpoint, json=data)
 
@@ -477,16 +494,20 @@ class BitbucketCloudClient:
             )
 
         return BitbucketComment(
-            id=item.get("id"),
+            id=item.get("id") or 0,
             content=item.get("content", {}),
             user=user,
             created_on=(
-                datetime.fromisoformat(item.get("created_on").replace("Z", "+00:00"))
+                datetime.fromisoformat(
+                    item.get("created_on", "").replace("Z", "+00:00")
+                )
                 if item.get("created_on")
                 else None
             ),
             updated_on=(
-                datetime.fromisoformat(item.get("updated_on").replace("Z", "+00:00"))
+                datetime.fromisoformat(
+                    item.get("updated_on", "").replace("Z", "+00:00")
+                )
                 if item.get("updated_on")
                 else None
             ),
@@ -515,7 +536,7 @@ class BitbucketCloudClient:
         }
 
         if parent_id:
-            data["parent"] = {"id": parent_id}
+            data["parent"] = {"id": str(parent_id)}
 
         item = await self._request("POST", endpoint, json=data)
 
@@ -531,16 +552,20 @@ class BitbucketCloudClient:
             )
 
         return BitbucketComment(
-            id=item.get("id"),
+            id=item.get("id") or 0,
             content=item.get("content", {}),
             user=user,
             created_on=(
-                datetime.fromisoformat(item.get("created_on").replace("Z", "+00:00"))
+                datetime.fromisoformat(
+                    item.get("created_on", "").replace("Z", "+00:00")
+                )
                 if item.get("created_on")
                 else None
             ),
             updated_on=(
-                datetime.fromisoformat(item.get("updated_on").replace("Z", "+00:00"))
+                datetime.fromisoformat(
+                    item.get("updated_on", "").replace("Z", "+00:00")
+                )
                 if item.get("updated_on")
                 else None
             ),
@@ -566,7 +591,7 @@ class BitbucketCloudClient:
         params = {"pagelen": limit}
         data = await self._request("GET", endpoint, params=params)
 
-        return data.get("values", [])
+        return list(data.get("values", []))
 
     async def get_pull_request_diff(
         self,
@@ -1337,7 +1362,10 @@ async def get_pull_request_diffstat(
             )
 
             # Process the diffstat to make it more readable
-            result = {"files_changed": len(diffstat.get("values", [])), "files": []}
+            result: dict[str, Any] = {
+                "files_changed": len(diffstat.get("values", [])),
+                "files": [],
+            }
 
             for file_stat in diffstat.get("values", []):
                 file_info = {
@@ -1368,7 +1396,7 @@ async def get_pull_request_diffstat(
         raise
 
 
-def main():
+def main() -> None:
     """Main entry point for the MCP server"""
     logger.info("Starting Bitbucket Cloud MCP Server")
     logger.info("Available tools:")
