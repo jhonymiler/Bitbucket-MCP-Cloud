@@ -1,6 +1,6 @@
 [project]
 name = "bitbucket-mcp-cloud"
-version = "1.3.1"
+version = "1.3.2"
 description = "A Model Context Protocol (MCP) server for Bitbucket Cloud API integration"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -39,8 +39,8 @@ dev = [
 ]
 
 [project.scripts]
-bitbucket-mcp-cloud = "server:main"
-bitbucket-mcp-server = "server:main"
+bitbucket-mcp-cloud = "bitbucket_mcp_cloud:main"
+bitbucket-mcp-server = "bitbucket_mcp_cloud:main"
 
 [project.urls]
 Homepage = "https://github.com/jhonymiler/Bitbucket-MCP-Server-Cloud"
@@ -58,8 +58,8 @@ packages = ["src"]
 [tool.hatch.build.targets.sdist]
 include = [
   "/src",
-  "/tests",
-  "/server.py",
+  "/tests", 
+  "/bitbucket_mcp_cloud.py",
   "/README.md",
   "/pyproject.toml",
   "/.env.example"
