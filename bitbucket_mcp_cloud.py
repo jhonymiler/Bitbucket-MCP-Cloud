@@ -47,7 +47,12 @@ For more information: https://github.com/jhonymiler/Bitbucket-MCP-Cloud
         )
         sys.exit(0)
 
-    from src.server import main as server_main
+    try:
+        # Tentativa de import quando executado localmente
+        from src.server import main as server_main
+    except ImportError:
+        # Import quando instalado via pip/uvx - src está no pacote root
+        from server import main as server_main
 
     server_main()
 

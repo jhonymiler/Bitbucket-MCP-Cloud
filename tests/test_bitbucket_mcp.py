@@ -94,10 +94,10 @@ class TestUtils:
 class TestBitbucketCloudClient:
     """Testes para cliente da API do Bitbucket"""
 
-    @patch("src.server.get_env_var")
+    @patch("server.get_env_var")
     def test_client_initialization(self, mock_get_env):
         """Testa inicialização do cliente"""
-        from src.server import BitbucketCloudClient
+        from server import BitbucketCloudClient
 
         mock_get_env.side_effect = ["testuser", "testpass", "testworkspace"]
 
@@ -108,21 +108,21 @@ class TestBitbucketCloudClient:
         assert client.default_workspace == "testworkspace"
         assert client.base_url == "https://api.bitbucket.org/2.0"
 
-    @patch("src.server.get_env_var")
+    @patch("server.get_env_var")
     async def test_client_context_manager(self, mock_get_env):
         """Testa uso do cliente como context manager"""
-        from src.server import BitbucketCloudClient
+        from server import BitbucketCloudClient
 
         mock_get_env.side_effect = ["testuser", "testpass", "testworkspace"]
 
         async with BitbucketCloudClient() as client:
             assert client._client is not None
 
-    @patch("src.server.get_env_var")
+    @patch("server.get_env_var")
     @patch("httpx.AsyncClient")
     async def test_request_method(self, mock_client_class, mock_get_env):
         """Testa método _request do cliente"""
-        from src.server import BitbucketCloudClient
+        from server import BitbucketCloudClient
 
         # Configure mocks
         mock_get_env.side_effect = ["testuser", "testpass", "testworkspace"]
@@ -141,11 +141,11 @@ class TestBitbucketCloudClient:
             assert result == {"test": "data"}
             mock_client.request.assert_called_once()
 
-    @patch("src.server.get_env_var")
+    @patch("server.get_env_var")
     @patch("httpx.AsyncClient")
     async def test_list_projects(self, mock_client_class, mock_get_env):
         """Testa listagem de projetos"""
-        from src.server import BitbucketCloudClient
+        from server import BitbucketCloudClient
 
         # Configure mocks
         mock_get_env.side_effect = ["testuser", "testpass", "testworkspace"]
@@ -182,10 +182,10 @@ class TestBitbucketCloudClient:
 class TestMCPTools:
     """Testes para ferramentas MCP"""
 
-    @patch("src.server.BitbucketCloudClient")
+    @patch("server.BitbucketCloudClient")
     async def test_list_projects_tool(self, mock_client_class):
         """Testa ferramenta list_projects"""
-        from src.server import list_projects
+        from server import list_projects
 
         # Configure mock
         mock_client = AsyncMock()
@@ -206,10 +206,10 @@ class TestMCPTools:
         assert result[0]["key"] == "PROJ"
         assert result[0]["name"] == "Test Project"
 
-    @patch("src.server.BitbucketCloudClient")
+    @patch("server.BitbucketCloudClient")
     async def test_list_repositories_tool(self, mock_client_class):
         """Testa ferramenta list_repositories"""
-        from src.server import list_repositories
+        from server import list_repositories
 
         # Configure mock
         mock_client = AsyncMock()
@@ -237,12 +237,12 @@ class TestMCPTools:
 class TestInlineComments:
     """Testes para comentários inline em pull requests"""
 
-    @patch("src.server.BitbucketCloudClient")
+    @patch("server.BitbucketCloudClient")
     async def test_create_pull_request_inline_comment(self, mock_client_class):
         """Testa criação de comentário inline em pull request"""
         from datetime import datetime
 
-        from src.server import create_pull_request_inline_comment
+        from server import create_pull_request_inline_comment
         from src.models import BitbucketComment, BitbucketUser
 
         # Mock client and response
@@ -291,10 +291,10 @@ class TestInlineComments:
 class TestDiffAnalysis:
     """Testes para análise de diff de pull requests"""
 
-    @patch("src.server.BitbucketCloudClient")
+    @patch("server.BitbucketCloudClient")
     async def test_get_pull_request_diff(self, mock_client_class):
         """Testa obtenção do diff de pull request"""
-        from src.server import get_pull_request_diff
+        from server import get_pull_request_diff
 
         # Mock client and response
         mock_client = AsyncMock()
@@ -322,10 +322,10 @@ index 1234567..abcdefg 100644
             "test-repo", 123, None, 3
         )
 
-    @patch("src.server.BitbucketCloudClient")
+    @patch("server.BitbucketCloudClient")
     async def test_get_pull_request_diffstat(self, mock_client_class):
         """Testa obtenção do diffstat de pull request"""
-        from src.server import get_pull_request_diffstat
+        from server import get_pull_request_diffstat
 
         # Mock client and response
         mock_client = AsyncMock()
@@ -379,12 +379,12 @@ index 1234567..abcdefg 100644
 class TestErrorHandling:
     """Testes para tratamento de erros"""
 
-    @patch("src.server.BitbucketCloudClient")
+    @patch("server.BitbucketCloudClient")
     async def test_client_http_error(self, mock_client_class):
         """Testa tratamento de erro HTTP"""
         import httpx
 
-        from src.server import list_projects
+        from server import list_projects
 
         # Configure mock to raise HTTP error
         mock_client = AsyncMock()
