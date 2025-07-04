@@ -91,7 +91,6 @@ class TestUtils:
         assert logger.level == 10  # DEBUG level
 
 
-@pytest.mark.asyncio
 class TestBitbucketCloudClient:
     """Testes para cliente da API do Bitbucket"""
 

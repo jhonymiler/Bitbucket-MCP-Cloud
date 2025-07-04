@@ -34,6 +34,8 @@ dev = [
     "pytest-cov>=6.0.0",
     "black>=24.0.0",
     "mypy>=1.13.0",
+    "build>=1.0.0",
+    "twine>=4.0.0",
 ]
 
 [project.scripts]
@@ -102,15 +104,3 @@ warn_return_any = true
 warn_unreachable = true
 warn_unused_configs = true
 warn_unused_ignores = true
-
-[dependency-groups]
-dev = [
-    "black>=25.1.0",
-    "build>=1.2.2.post1",
-    "mypy>=1.16.1",
-    "pytest>=8.4.0",
-    "pytest-asyncio>=1.0.0",
-    "pytest-cov>=6.2.1",
-    "pytest-mock>=3.14.1",
-    "twine>=6.1.0",
-]

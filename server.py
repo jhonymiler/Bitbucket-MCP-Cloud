@@ -579,7 +579,7 @@ class BitbucketCloudClient:
         workspace = self._get_workspace(workspace)
         endpoint = f"/repositories/{workspace}/{repository}/pullrequests/{pr_id}/diff"
         params = {"context": context}
-        
+
         return await self._request_text("GET", endpoint, params=params)
 
     async def get_pull_request_diffstat(
