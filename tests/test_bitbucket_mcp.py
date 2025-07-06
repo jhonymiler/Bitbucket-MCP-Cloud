@@ -8,13 +8,19 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 # Import our modules
-from bitbucket_mcp_cloud.models import (
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+from src.bitbucket_mcp_cloud.models import (
     BitbucketProject,
     BitbucketPullRequest,
     BitbucketRepository,
     BitbucketUser,
+    BitbucketComment,
 )
-from bitbucket_mcp_cloud.utils import get_env_var, setup_logger
+from src.bitbucket_mcp_cloud.utils import get_env_var, setup_logger
 
 
 class TestModels:
@@ -108,6 +114,7 @@ class TestBitbucketCloudClient:
         assert client.default_workspace == "testworkspace"
         assert client.base_url == "https://api.bitbucket.org/2.0"
 
+    @pytest.mark.asyncio
     @patch("server.get_env_var")
     async def test_client_context_manager(self, mock_get_env):
         """Testa uso do cliente como context manager"""
@@ -118,6 +125,7 @@ class TestBitbucketCloudClient:
         async with BitbucketCloudClient() as client:
             assert client._client is not None
 
+    @pytest.mark.asyncio
     @patch("server.get_env_var")
     @patch("httpx.AsyncClient")
     async def test_request_method(self, mock_client_class, mock_get_env):
@@ -141,6 +149,7 @@ class TestBitbucketCloudClient:
             assert result == {"test": "data"}
             mock_client.request.assert_called_once()
 
+    @pytest.mark.asyncio
     @patch("server.get_env_var")
     @patch("httpx.AsyncClient")
     async def test_list_projects(self, mock_client_class, mock_get_env):
@@ -237,13 +246,13 @@ class TestMCPTools:
 class TestInlineComments:
     """Testes para comentários inline em pull requests"""
 
+    @pytest.mark.asyncio
     @patch("server.BitbucketCloudClient")
     async def test_create_pull_request_inline_comment(self, mock_client_class):
         """Testa criação de comentário inline em pull request"""
         from datetime import datetime
 
         from server import create_pull_request_inline_comment
-        from bitbucket_mcp_cloud.models import BitbucketComment, BitbucketUser
 
         # Mock client and response
         mock_client = AsyncMock()
@@ -291,6 +300,7 @@ class TestInlineComments:
 class TestDiffAnalysis:
     """Testes para análise de diff de pull requests"""
 
+    @pytest.mark.asyncio
     @patch("server.BitbucketCloudClient")
     async def test_get_pull_request_diff(self, mock_client_class):
         """Testa obtenção do diff de pull request"""
@@ -322,6 +332,7 @@ index 1234567..abcdefg 100644
             "test-repo", 123, None, 3
         )
 
+    @pytest.mark.asyncio
     @patch("server.BitbucketCloudClient")
     async def test_get_pull_request_diffstat(self, mock_client_class):
         """Testa obtenção do diffstat de pull request"""
@@ -375,10 +386,94 @@ index 1234567..abcdefg 100644
             "test-repo", 123, None
         )
 
+    @pytest.mark.asyncio
+    @patch("server.BitbucketCloudClient")
+    async def test_update_pull_request(self, mock_client_class):
+        """Testa atualização de pull request"""
+        from server import update_pull_request
+
+        # Mock client and response
+        mock_client = AsyncMock()
+        mock_updated_pr = BitbucketPullRequest(
+            id=123,
+            title="Updated Pull Request Title",
+            description="Updated description with more details",
+            state="OPEN",
+            author=BitbucketUser(
+                uuid="author-uuid",
+                username="author",
+                display_name="PR Author",
+                account_id="author-account",
+                nickname="author",
+            ),
+        )
+
+        mock_client.update_pull_request.return_value = mock_updated_pr
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        # Test updating description only
+        result = await update_pull_request(
+            repository="test-repo",
+            pr_id=123,
+            description="Updated description with more details"
+        )
+
+        assert result["id"] == 123
+        assert result["title"] == "Updated Pull Request Title"
+        assert result["description"] == "Updated description with more details"
+        assert result["state"] == "OPEN"
+        assert result["author"]["username"] == "author"
+
+        mock_client.update_pull_request.assert_called_once_with(
+            "test-repo", 123, None, "Updated description with more details", None
+        )
+
+    @pytest.mark.asyncio
+    @patch("server.BitbucketCloudClient")
+    async def test_update_pull_request_title_and_description(self, mock_client_class):
+        """Testa atualização de título e descrição de pull request"""
+        from server import update_pull_request
+
+        # Mock client and response
+        mock_client = AsyncMock()
+        mock_updated_pr = BitbucketPullRequest(
+            id=123,
+            title="New Title",
+            description="New description",
+            state="OPEN",
+            author=BitbucketUser(
+                uuid="author-uuid",
+                username="author",
+                display_name="PR Author",
+                account_id="author-account",
+                nickname="author",
+            ),
+        )
+
+        mock_client.update_pull_request.return_value = mock_updated_pr
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        # Test updating both title and description
+        result = await update_pull_request(
+            repository="test-repo",
+            pr_id=123,
+            title="New Title",
+            description="New description"
+        )
+
+        assert result["id"] == 123
+        assert result["title"] == "New Title"
+        assert result["description"] == "New description"
+
+        mock_client.update_pull_request.assert_called_once_with(
+            "test-repo", 123, "New Title", "New description", None
+        )
+
 
 class TestErrorHandling:
     """Testes para tratamento de erros"""
 
+    @pytest.mark.asyncio
     @patch("server.BitbucketCloudClient")
     async def test_client_http_error(self, mock_client_class):
         """Testa tratamento de erro HTTP"""

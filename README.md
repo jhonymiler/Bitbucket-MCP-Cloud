@@ -16,7 +16,7 @@ A **production-ready Model Context Protocol (MCP)** server for seamless integrat
 - ✅ **Fully Tested** - Comprehensive test suite with automated CI/CD
 - ✅ **Clean Architecture** - Modular design following SOLID principles
 
-## 🛠️ Features (14 Tools)
+## 🛠️ Features (15 Tools)
 
 ### 🎯 Project & Repository Management
 - **`list_projects`** - List all accessible projects in workspace
@@ -27,6 +27,7 @@ A **production-ready Model Context Protocol (MCP)** server for seamless integrat
 - **`list_pull_requests`** - List PRs with state filtering (OPEN, MERGED, DECLINED)
 - **`get_pull_request`** - Get detailed PR information
 - **`create_pull_request`** - Create new pull requests with reviewers
+- **`update_pull_request`** - Update pull request title and/or description
 - **`approve_pull_request`** - Approve pull requests
 - **`decline_pull_request`** - Decline pull requests
 - **`merge_pull_request`** - Merge approved PRs with strategy selection
@@ -169,6 +170,13 @@ await create_pull_request(
     source_branch="feature/new-feature",
     target_branch="main",
     description="Implements new feature X"
+)
+
+# Update PR description
+await update_pull_request(
+    repository="my-repo",
+    pr_id=123,
+    description="Updated description with more details"
 )
 
 # Approve and merge PR

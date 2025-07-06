@@ -14,7 +14,7 @@ from mcp.server.fastmcp import FastMCP
 # Import our custom models and utilities
 try:
     # Try local import first (when running locally)
-    from src.models import (
+    from src.bitbucket_mcp_cloud.models import (
         BitbucketBranch,
         BitbucketComment,
         BitbucketProject,
@@ -22,7 +22,7 @@ try:
         BitbucketRepository,
         BitbucketUser,
     )
-    from src.utils import get_env_var, setup_logger
+    from src.bitbucket_mcp_cloud.utils import get_env_var, setup_logger
 except ImportError:
     # Fallback to package import (when installed via pip/uvx)
     from bitbucket_mcp_cloud.models import (
@@ -422,6 +422,74 @@ class BitbucketCloudClient:
         data = {"merge_strategy": merge_strategy}
         return await self._request("POST", endpoint, json=data)
 
+    async def update_pull_request(
+        self,
+        repository: str,
+        pr_id: int,
+        title: str | None = None,
+        description: str | None = None,
+        workspace: str | None = None,
+    ) -> dict[str, Any]:
+        """Update pull request title and/or description"""
+        workspace = self._get_workspace(workspace)
+        endpoint = f"/repositories/{workspace}/{repository}/pullrequests/{pr_id}"
+
+        data = {}
+        if title is not None:
+            data["title"] = title
+        if description is not None:
+            data["description"] = description
+
+        if not data:
+            raise ValueError("At least one of title or description must be provided")
+
+        item = await self._request("PUT", endpoint, json=data)
+
+        # Convert response to BitbucketPullRequest model
+        author_data = item.get("author")
+        author = None
+        if author_data:
+            author = BitbucketUser(
+                uuid=author_data.get("uuid"),
+                username=author_data.get("username"),
+                display_name=author_data.get("display_name"),
+                account_id=author_data.get("account_id"),
+                nickname=author_data.get("nickname"),
+            )
+
+        source_data = item.get("source", {}).get("branch")
+        source = BitbucketBranch(name=source_data.get("name")) if source_data else None
+
+        dest_data = item.get("destination", {}).get("branch")
+        destination = BitbucketBranch(name=dest_data.get("name")) if dest_data else None
+
+        return BitbucketPullRequest(
+            id=item.get("id") or 0,
+            title=item.get("title") or "",
+            description=item.get("description"),
+            state=item.get("state") or "",
+            author=author,
+            source=source,
+            destination=destination,
+            created_on=(
+                datetime.fromisoformat(
+                    item.get("created_on", "").replace("Z", "+00:00")
+                )
+                if item.get("created_on")
+                else None
+            ),
+            updated_on=(
+                datetime.fromisoformat(
+                    item.get("updated_on", "").replace("Z", "+00:00")
+                )
+                if item.get("updated_on")
+                else None
+            ),
+            close_source_branch=item.get("close_source_branch", False),
+            reviewers=item.get("reviewers", []),
+            participants=item.get("participants", []),
+        )
+
     # Comments
     async def list_pull_request_comments(
         self, repository: str, pr_id: int, workspace: str | None = None
@@ -654,6 +722,7 @@ mcp = FastMCP(
     - list_pull_requests: List pull requests in repository
     - get_pull_request: Get specific pull request details
     - create_pull_request: Create new pull request
+    - update_pull_request: Update pull request title and/or description
     - approve_pull_request: Approve pull request
     - decline_pull_request: Decline pull request
     - merge_pull_request: Merge approved pull request
@@ -1121,6 +1190,71 @@ async def merge_pull_request(
 
     except Exception as e:
         logger.error(f"Error merging pull request: {e}")
+        raise
+
+
+@mcp.tool()
+async def update_pull_request(
+    repository: str,
+    pr_id: int,
+    title: str | None = None,
+    description: str | None = None,
+    workspace: str | None = None,
+) -> dict[str, Any]:
+    """
+    Update pull request title and/or description.
+
+    Args:
+        repository: Repository slug
+        pr_id: Pull request ID
+        title: New pull request title (optional)
+        description: New pull request description (optional)
+        workspace: Workspace name (optional)
+
+    Returns:
+        Updated pull request details
+    """
+    logger.info(
+        f"Updating pull request {pr_id} in {repository} - title: {title is not None}, description: {description is not None}"
+    )
+
+    try:
+        async with BitbucketCloudClient() as client:
+            result = await client.update_pull_request(
+                repository, pr_id, title, description, workspace
+            )
+
+            # Convert result to dict for response
+            result_dict = {
+                "id": result.id,
+                "title": result.title,
+                "description": result.description,
+                "state": result.state,
+                "author": {
+                    "uuid": result.author.uuid if result.author else None,
+                    "username": result.author.username if result.author else None,
+                    "display_name": result.author.display_name if result.author else None,
+                    "account_id": result.author.account_id if result.author else None,
+                    "nickname": result.author.nickname if result.author else None,
+                } if result.author else None,
+                "source": {
+                    "name": result.source.name if result.source else None,
+                } if result.source else None,
+                "destination": {
+                    "name": result.destination.name if result.destination else None,
+                } if result.destination else None,
+                "created_on": result.created_on.isoformat() if result.created_on else None,
+                "updated_on": result.updated_on.isoformat() if result.updated_on else None,
+                "close_source_branch": result.close_source_branch,
+                "reviewers": result.reviewers,
+                "participants": result.participants,
+            }
+
+            logger.info(f"Updated pull request {pr_id} successfully")
+            return result_dict
+
+    except Exception as e:
+        logger.error(f"Error updating pull request: {e}")
         raise
 
 
