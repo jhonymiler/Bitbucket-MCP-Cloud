@@ -8,17 +8,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-
-from src.bitbucket_mcp_cloud.models import (
+from bitbucket_mcp_cloud.models import (
     BitbucketProject,
     BitbucketPullRequest,
     BitbucketRepository,
     BitbucketUser,
     BitbucketComment,
 )
-from src.bitbucket_mcp_cloud.utils import get_env_var, setup_logger
+from bitbucket_mcp_cloud.utils import get_env_var, setup_logger
 
 
 class TestModels:

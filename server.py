@@ -12,28 +12,15 @@ from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
 # Import our custom models and utilities
-try:
-    # Try local import first (when running locally)
-    from src.bitbucket_mcp_cloud.models import (
-        BitbucketBranch,
-        BitbucketComment,
-        BitbucketProject,
-        BitbucketPullRequest,
-        BitbucketRepository,
-        BitbucketUser,
-    )
-    from src.bitbucket_mcp_cloud.utils import get_env_var, setup_logger
-except ImportError:
-    # Fallback to package import (when installed via pip/uvx)
-    from bitbucket_mcp_cloud.models import (
-        BitbucketBranch,
-        BitbucketComment,
-        BitbucketProject,
-        BitbucketPullRequest,
-        BitbucketRepository,
-        BitbucketUser,
-    )
-    from bitbucket_mcp_cloud.utils import get_env_var, setup_logger
+from bitbucket_mcp_cloud.models import (
+    BitbucketBranch,
+    BitbucketComment,
+    BitbucketProject,
+    BitbucketPullRequest,
+    BitbucketRepository,
+    BitbucketUser,
+)
+from bitbucket_mcp_cloud.utils import get_env_var, setup_logger
 
 # Load environment variables
 load_dotenv()
@@ -429,7 +416,7 @@ class BitbucketCloudClient:
         title: str | None = None,
         description: str | None = None,
         workspace: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> BitbucketPullRequest:
         """Update pull request title and/or description"""
         workspace = self._get_workspace(workspace)
         endpoint = f"/repositories/{workspace}/{repository}/pullrequests/{pr_id}"
