@@ -10,8 +10,9 @@ import pytest
 # Import our modules
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from src.bitbucket_mcp_cloud.models import (
     BitbucketProject,
@@ -415,7 +416,7 @@ index 1234567..abcdefg 100644
         result = await update_pull_request(
             repository="test-repo",
             pr_id=123,
-            description="Updated description with more details"
+            description="Updated description with more details",
         )
 
         assert result["id"] == 123
@@ -458,7 +459,7 @@ index 1234567..abcdefg 100644
             repository="test-repo",
             pr_id=123,
             title="New Title",
-            description="New description"
+            description="New description",
         )
 
         assert result["id"] == 123

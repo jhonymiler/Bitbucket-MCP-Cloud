@@ -1230,21 +1230,41 @@ async def update_pull_request(
                 "title": result.title,
                 "description": result.description,
                 "state": result.state,
-                "author": {
-                    "uuid": result.author.uuid if result.author else None,
-                    "username": result.author.username if result.author else None,
-                    "display_name": result.author.display_name if result.author else None,
-                    "account_id": result.author.account_id if result.author else None,
-                    "nickname": result.author.nickname if result.author else None,
-                } if result.author else None,
-                "source": {
-                    "name": result.source.name if result.source else None,
-                } if result.source else None,
-                "destination": {
-                    "name": result.destination.name if result.destination else None,
-                } if result.destination else None,
-                "created_on": result.created_on.isoformat() if result.created_on else None,
-                "updated_on": result.updated_on.isoformat() if result.updated_on else None,
+                "author": (
+                    {
+                        "uuid": result.author.uuid if result.author else None,
+                        "username": result.author.username if result.author else None,
+                        "display_name": (
+                            result.author.display_name if result.author else None
+                        ),
+                        "account_id": (
+                            result.author.account_id if result.author else None
+                        ),
+                        "nickname": result.author.nickname if result.author else None,
+                    }
+                    if result.author
+                    else None
+                ),
+                "source": (
+                    {
+                        "name": result.source.name if result.source else None,
+                    }
+                    if result.source
+                    else None
+                ),
+                "destination": (
+                    {
+                        "name": result.destination.name if result.destination else None,
+                    }
+                    if result.destination
+                    else None
+                ),
+                "created_on": (
+                    result.created_on.isoformat() if result.created_on else None
+                ),
+                "updated_on": (
+                    result.updated_on.isoformat() if result.updated_on else None
+                ),
                 "close_source_branch": result.close_source_branch,
                 "reviewers": result.reviewers,
                 "participants": result.participants,
